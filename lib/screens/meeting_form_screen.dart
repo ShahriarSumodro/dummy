@@ -7,6 +7,9 @@ import '../models/organization.dart';
 import '../models/contact.dart';
 import '../services/database_service.dart';
 import '../services/ai_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Screen to create or edit a Meeting, complete with AI Action Item & Decision extraction.
 class MeetingFormScreen extends StatefulWidget {
@@ -46,15 +49,9 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.meeting?.title ?? '');
-    _locationController = TextEditingController(
-      text: widget.meeting?.location ?? '',
-    );
-    _notesController = TextEditingController(
-      text: widget.meeting?.rawNotes ?? '',
-    );
-    _summaryController = TextEditingController(
-      text: widget.meeting?.summary ?? '',
-    );
+    _locationController = TextEditingController(text: widget.meeting?.location ?? '');
+    _notesController = TextEditingController(text: widget.meeting?.rawNotes ?? '');
+    _summaryController = TextEditingController(text: widget.meeting?.summary ?? '');
 
     if (widget.meeting != null) {
       _meetingDate = widget.meeting!.meetingDate;
@@ -97,7 +94,6 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
         });
       }
     } catch (_) {
-      // Graceful fallback on missing relations
     } finally {
       if (mounted) {
         setState(() => _loadingRelations = false);
@@ -115,6 +111,7 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
   }
 
   Future<void> _pickDate() async {
+    AppHaptics.lightImpact();
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
@@ -149,6 +146,7 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
       return;
     }
 
+    AppHaptics.mediumImpact();
     setState(() => _isExtracting = true);
 
     try {
@@ -166,18 +164,21 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
         await _extractWithMockRules(notes);
       }
       if (mounted) {
+        AppHaptics.success();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Decisions and action items extracted!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Decisions and action items extracted!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Extraction error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Extraction error: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isExtracting = false);
@@ -190,8 +191,7 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
     );
 
-    final prompt =
-        '''
+    final prompt = '''
 Analyze these business meeting notes:
 "$notes"
 
@@ -244,8 +244,7 @@ Return strictly valid JSON:
     ];
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
 
-    final prompt =
-        '''
+    final prompt = '''
 Analyze these business meeting notes:
 "$notes"
 
@@ -337,6 +336,7 @@ Return strictly valid JSON:
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    AppHaptics.success();
 
     final meeting = Meeting(
       id: widget.meeting?.id,
@@ -364,92 +364,109 @@ Return strictly valid JSON:
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('EEE, MMM d, yyyy · h:mm a');
-    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Meeting' : 'New Meeting'),
-        actions: [TextButton(onPressed: _save, child: const Text('Save'))],
+        titleSpacing: 0,
+        title: Text(_isEditing ? 'Edit Meeting' : 'New Meeting', style: const TextStyle(fontWeight: FontWeight.w700)),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: AppButton(
+              label: 'Save',
+              size: AppButtonSize.sm,
+              onPressed: _save,
+            ),
+          ),
+        ],
       ),
       body: _loadingRelations
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 children: [
-                  TextFormField(
+                  AppTextField(
                     controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Meeting Title *',
-                      hintText: 'e.g. Q3 Partnership Review',
-                      prefixIcon: Icon(Icons.meeting_room_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    textCapitalization: TextCapitalization.sentences,
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Title is required'
-                        : null,
+                    label: 'Meeting Title *',
+                    hintText: 'e.g. Q3 Partnership Review',
+                    prefixIcon: Icons.meeting_room_outlined,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
 
-                  ListTile(
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(color: theme.colorScheme.outlineVariant),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    leading: const Icon(Icons.calendar_today_outlined),
-                    title: const Text('Date & Time'),
-                    subtitle: Text(dateFormat.format(_meetingDate)),
-                    trailing: const Icon(Icons.edit_calendar),
+                  // Date Picker Card
+                  AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     onTap: _pickDate,
-                  ),
-                  if (_conflicts.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.amber.shade700,
-                          width: 0.8,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'DATE & TIME',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  color: AppColors.muted(context),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                dateFormat.format(_meetingDate),
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              ),
+                            ],
+                          ),
                         ),
+                        const Icon(Icons.edit_calendar_rounded, size: 18, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+
+                  if (_conflicts.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.amber.shade800,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
+                              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 18),
+                              const SizedBox(width: AppSpacing.xs),
                               Text(
                                 'Schedule Overlap Detected (${_conflicts.length})',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: Colors.amber.shade900,
-                                  fontWeight: FontWeight.bold,
+                                style: const TextStyle(
+                                  color: AppColors.warning,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           ..._conflicts.map((c) {
-                            final kind = (c['kind'] as String? ?? 'event')
-                                .toUpperCase();
+                            final kind = (c['kind'] as String? ?? 'event').toUpperCase();
                             final title = c['title'] as String? ?? 'Untitled';
-                            final date =
-                                c['date'] as DateTime? ?? DateTime.now();
+                            final date = c['date'] as DateTime? ?? DateTime.now();
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Text(
                                 '• $kind: "$title" at ${DateFormat('h:mm a').format(date)}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.amber.shade900,
-                                ),
+                                style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
                               ),
                             );
                           }),
@@ -457,57 +474,60 @@ Return strictly valid JSON:
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
 
-                  TextFormField(
+                  AppTextField(
                     controller: _locationController,
-                    decoration: const InputDecoration(
-                      labelText: 'Location / Platform',
-                      hintText: 'e.g. Google Meet, In-person at HQ, Zoom',
-                      prefixIcon: Icon(Icons.location_on_outlined),
-                      border: OutlineInputBorder(),
-                    ),
+                    label: 'Location / Platform',
+                    hintText: 'e.g. Google Meet, In-person at HQ, Zoom',
+                    prefixIcon: Icons.location_on_outlined,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
 
                   // Organization Dropdown
                   DropdownButtonFormField<int>(
-                    key: ValueKey(_selectedOrgId),
-                    initialValue: _selectedOrgId,
-                    decoration: const InputDecoration(
+                    value: _selectedOrgId,
+                    decoration: InputDecoration(
                       labelText: 'Related Company (optional)',
-                      prefixIcon: Icon(Icons.business_outlined),
-                      border: OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.business_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                     ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('None')),
-                      ..._organizations.map(
-                        (org) => DropdownMenuItem(
-                          value: org.id,
-                          child: Text(org.name),
-                        ),
-                      ),
+                      ..._organizations.map((org) => DropdownMenuItem(value: org.id, child: Text(org.name))),
                     ],
                     onChanged: (id) => setState(() => _selectedOrgId = id),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
 
                   // Attendees Selector
                   if (_contacts.isNotEmpty) ...[
                     Text(
-                      'Select Attendees:',
-                      style: theme.textTheme.labelLarge,
+                      'SELECT ATTENDEES',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.muted(context),
+                      ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
                       children: _contacts.map((c) {
                         final isSelected = _selectedAttendeeIds.contains(c.id);
                         return FilterChip(
                           label: Text(c.name),
                           selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected ? Colors.white : AppColors.foreground(context),
+                          ),
                           onSelected: (selected) {
+                            AppHaptics.lightImpact();
                             setState(() {
                               if (selected) {
                                 _selectedAttendeeIds.add(c.id!);
@@ -519,105 +539,91 @@ Return strictly valid JSON:
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.md),
                   ],
 
                   // Raw Notes
-                  TextFormField(
+                  AppTextField(
                     controller: _notesController,
-                    maxLines: 8,
-                    decoration: const InputDecoration(
-                      labelText: 'Meeting Notes / Transcript',
-                      hintText:
-                          'Type key talking points, who attended, promises made, and decisions agreed upon...',
-                      alignLabelWithHint: true,
-                      border: OutlineInputBorder(),
-                    ),
+                    label: 'Meeting Notes / Transcript',
+                    hintText: 'Type key talking points, who attended, promises made, and decisions agreed upon...',
+                    maxLines: 7,
+                    prefixIcon: Icons.notes_rounded,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
 
                   // AI Extract Button
-                  FilledButton.tonalIcon(
-                    onPressed: _isExtracting
-                        ? null
-                        : _extractIntelligenceWithAi,
-                    icon: _isExtracting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.auto_awesome),
-                    label: Text(
-                      _isExtracting
-                          ? 'Analyzing Meeting...'
-                          : 'Extract Decisions & Action Items (AI)',
-                    ),
+                  AppButton(
+                    label: _isExtracting ? 'Analyzing Meeting...' : 'Extract Decisions & Action Items (AI)',
+                    icon: Icons.auto_awesome_rounded,
+                    variant: AppButtonVariant.tonal,
+                    loading: _isExtracting,
+                    onPressed: _isExtracting ? null : _extractIntelligenceWithAi,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
 
-                  // Summary
-                  if (_summaryController.text.isNotEmpty ||
-                      _decisions.isNotEmpty) ...[
-                    const Divider(height: 32),
-                    Text(
-                      'AI Intelligence Summary',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                  // Intelligence Summary
+                  if (_summaryController.text.isNotEmpty || _decisions.isNotEmpty || _actionItems.isNotEmpty) ...[
+                    AppSectionHeader(title: 'AI Intelligence Summary'),
+                    const SizedBox(height: AppSpacing.xs),
+                    AppTextField(
                       controller: _summaryController,
+                      label: 'Executive Summary',
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Executive Summary',
-                        border: OutlineInputBorder(),
-                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.md),
 
                     if (_decisions.isNotEmpty) ...[
                       Text(
-                        'Decisions Agreed:',
-                        style: theme.textTheme.labelLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      ..._decisions.map(
-                        (d) => ListTile(
-                          dense: true,
-                          leading: const Icon(
-                            Icons.check_circle_outline,
-                            color: Colors.green,
-                            size: 20,
-                          ),
-                          title: Text(d),
+                        'DECISIONS AGREED',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: AppColors.muted(context),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.xs),
+                      ..._decisions.map((d) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.success),
+                                const SizedBox(width: AppSpacing.xs),
+                                Expanded(child: Text(d, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                              ],
+                            ),
+                          )),
+                      const SizedBox(height: AppSpacing.md),
                     ],
 
                     if (_actionItems.isNotEmpty) ...[
                       Text(
-                        'Action Items Extracted:',
-                        style: theme.textTheme.labelLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      ..._actionItems.map(
-                        (a) => ListTile(
-                          dense: true,
-                          leading: const Icon(
-                            Icons.task_alt,
-                            color: Colors.blue,
-                            size: 20,
-                          ),
-                          title: Text(a),
+                        'ACTION ITEMS EXTRACTED',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: AppColors.muted(context),
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.xs),
+                      ..._actionItems.map((a) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.task_alt_rounded, size: 16, color: AppColors.primary),
+                                const SizedBox(width: AppSpacing.xs),
+                                Expanded(child: Text(a, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                              ],
+                            ),
+                          )),
                     ],
                   ],
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
             ),

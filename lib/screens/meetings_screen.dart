@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/meeting.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'meeting_form_screen.dart';
 import 'meeting_detail_screen.dart';
 
@@ -52,6 +55,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   }
 
   Future<void> _createMeeting() async {
+    AppHaptics.lightImpact();
     final result = await Navigator.push<Meeting>(
       context,
       MaterialPageRoute(builder: (_) => const MeetingFormScreen()),
@@ -64,26 +68,51 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final dateFormat = DateFormat('EEE, MMM d, yyyy');
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
+        titleSpacing: AppSpacing.md,
         title: _searching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
+                style: const TextStyle(fontSize: 16),
                 decoration: const InputDecoration(
                   hintText: 'Search meetings...',
                   border: InputBorder.none,
                 ),
                 onChanged: (q) => _loadMeetings(query: q),
               )
-            : const Text('Meeting Intelligence'),
+            : Row(
+                children: [
+                  const Text('Meetings Intel', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                  if (!_loading && _meetings.isNotEmpty) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.subtle(context),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                      ),
+                      child: Text(
+                        '${_meetings.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.muted(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
         actions: [
           IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search),
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
             onPressed: () {
+              AppHaptics.lightImpact();
               setState(() {
                 _searching = !_searching;
                 if (!_searching) {
@@ -93,84 +122,68 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
               });
             },
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              itemCount: 6,
+              itemBuilder: (_, __) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: AppSkeleton(height: 76, borderRadius: BorderRadius.circular(AppRadius.lg)),
+              ),
+            )
           : _meetings.isEmpty
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.meeting_room_outlined,
-                          size: 70,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No meetings recorded yet',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Log your client meetings and partner discussions. RemembrAI will summarize topics, decisions, and action items.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+                  child: AppEmptyState(
+                    icon: Icons.meeting_room_outlined,
+                    title: _searching ? 'No matching meetings' : 'No meetings recorded yet',
+                    message: _searching
+                        ? 'Try a different search query.'
+                        : 'Log client meetings and partner discussions. RemembrAI will summarize topics, decisions, and action items.',
+                    actionLabel: _searching ? 'Clear Search' : 'Log First Meeting',
+                    onAction: _searching
+                        ? () {
+                            _searchController.clear();
+                            setState(() => _searching = false);
+                            _loadMeetings();
+                          }
+                        : _createMeeting,
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 100),
                   itemCount: _meetings.length,
                   itemBuilder: (context, index) {
                     final m = _meetings[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: AppListRow(
                         leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.secondaryContainer,
-                          child: Icon(
-                            Icons.groups_outlined,
-                            color: theme.colorScheme.onSecondaryContainer,
+                          radius: 18,
+                          backgroundColor: AppColors.subtle(context),
+                          child: const Icon(
+                            Icons.groups_rounded,
+                            color: AppColors.primary,
+                            size: 18,
                           ),
                         ),
-                        title: Text(
-                          m.title,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              [
-                                dateFormat.format(m.meetingDate),
-                                if (m.organizationName != null) m.organizationName!,
-                                if (m.location != null) m.location!,
-                              ].join(' · '),
-                            ),
-                            if (m.actionItems.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  '${m.actionItems.length} action item(s)',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
+                        title: m.title,
+                        subtitle: [
+                          dateFormat.format(m.meetingDate),
+                          if (m.organizationName != null) m.organizationName!,
+                          if (m.location != null) m.location!,
+                        ].join(' · '),
+                        badge: m.actionItems.isNotEmpty
+                            ? AppBadge(
+                                label: '${m.actionItems.length} actions',
+                                variant: AppBadgeVariant.neutral,
+                              )
+                            : null,
+                        trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
                         onTap: () async {
+                          AppHaptics.lightImpact();
                           final updated = await Navigator.push<bool>(
                             context,
                             MaterialPageRoute(
@@ -183,9 +196,15 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createMeeting,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: FloatingActionButton(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          onPressed: _createMeeting,
+          child: const Icon(Icons.add_rounded),
+        ),
       ),
     );
   }

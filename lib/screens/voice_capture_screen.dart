@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/database_service.dart';
 import '../services/ai_service.dart';
 import '../services/voice_service.dart';
-import '../services/notification_service.dart';
 import '../models/ai_extraction_result.dart';
 import '../models/commitment.dart';
 import '../models/reminder.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'ai_review_screen.dart';
 import 'multi_participant_resolution_screen.dart';
 
@@ -100,6 +101,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   }
 
   Future<void> _startRecording() async {
+    AppHaptics.mediumImpact();
     if (!_speechEnabled) {
       await _initSpeech();
     }
@@ -120,7 +122,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        // Active watchdog: if Android OS speech recognizer stopped on silence timeout, sync recording UI immediately
+        // Active watchdog: if speech engine stopped, cleanly turn off recording button immediately
         if (!_speech.isListening && _recordingSeconds >= 2) {
           _stopRecording();
           return;
@@ -152,6 +154,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   }
 
   Future<void> _stopRecording() async {
+    AppHaptics.lightImpact();
     _timer?.cancel();
     try {
       await _speech.stop();
@@ -166,11 +169,16 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
     final text = _transcriptController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please speak or type a note first.')),
+        SnackBar(
+          content: const Text('Please speak or type a note first.'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        ),
       );
       return;
     }
 
+    AppHaptics.mediumImpact();
     setState(() => _isProcessing = true);
 
     try {
@@ -194,7 +202,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
       if (!mounted) return;
 
-      // If multiple unresolved participants are detected (e.g. Person A, Person B in a 3-4 person discussion)
+      // If multiple unresolved participants are detected
       if (result.hasUnresolvedParticipants) {
         final resolved = await Navigator.push<bool>(
           context,
@@ -225,7 +233,11 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Decoding failed: $e')),
+          SnackBar(
+            content: Text('Decoding failed: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          ),
         );
       }
     } finally {
@@ -304,20 +316,24 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
       await VoiceService().speak(speechBuffer.toString());
 
       if (mounted) {
+        AppHaptics.success();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Successfully set up ${savedCommitments.length} commitment(s) & ${result.contacts.length} contact(s)!',
+              'Successfully set up ${savedCommitments.length} promise(s) & ${result.contacts.length} contact(s)!',
             ),
-            backgroundColor: Colors.green.shade800,
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
+        AppHaptics.warning();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Auto-setup error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Auto-setup error: $e'), backgroundColor: AppColors.error),
         );
       }
     }
@@ -325,52 +341,79 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final minutes = (_recordingSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (_recordingSeconds % 60).toString().padLeft(2, '0');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Voice AI Decoder & Setup')),
+      backgroundColor: AppColors.background(context),
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: const Text('Voice AI Decoder & Setup', style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          // Privacy banner
+          // Privacy Banner
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
-                Icon(Icons.mic_none, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
+                const Icon(Icons.mic_none_rounded, color: AppColors.primary, size: 20),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Speak naturally about your calls, follow-ups, promises, or meetings. RemembrAI will decode what you owe and what others owe you.',
-                    style: theme.textTheme.bodySmall,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.foreground(context),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
 
           // Language Selector
-          Text('Spoken Language:', style: theme.textTheme.labelLarge),
-          const SizedBox(height: 8),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'English', label: Text('English')),
-              ButtonSegment(value: 'বাংলা', label: Text('বাংলা')),
-              ButtonSegment(value: 'Banglish', label: Text('Banglish')),
-            ],
-            selected: {_selectedLanguage},
-            onSelectionChanged: (val) {
-              setState(() => _selectedLanguage = val.first);
-            },
+          Text(
+            'SPOKEN LANGUAGE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.muted(context),
+            ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: ['English', 'বাংলা', 'Banglish'].map((lang) {
+              final isSel = _selectedLanguage == lang;
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.xs),
+                child: ChoiceChip(
+                  label: Text(lang),
+                  selected: isSel,
+                  selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSel ? FontWeight.w600 : FontWeight.w500,
+                    color: isSel ? Colors.white : AppColors.foreground(context),
+                  ),
+                  onSelected: (_) {
+                    AppHaptics.lightImpact();
+                    setState(() => _selectedLanguage = lang);
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: AppSpacing.xl),
 
           // Microphone Center
           Center(
@@ -380,64 +423,77 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
                   onTap: _toggleRecording,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: 100,
-                    height: 100,
+                    width: 96,
+                    height: 96,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _isRecording
-                          ? Colors.red
-                          : theme.colorScheme.primaryContainer,
+                      color: _isRecording ? AppColors.error : AppColors.primary,
                       boxShadow: _isRecording
                           ? [
                               BoxShadow(
-                                color: Colors.red.withValues(alpha: 0.5),
+                                color: AppColors.error.withValues(alpha: 0.45),
                                 blurRadius: 28,
-                                spreadRadius: 10,
+                                spreadRadius: 8,
                               ),
                             ]
-                          : [],
+                          : [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.35),
+                                blurRadius: 20,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                     ),
                     child: Icon(
-                      _isRecording ? Icons.stop : Icons.mic,
-                      size: 44,
-                      color: _isRecording
-                          ? Colors.white
-                          : theme.colorScheme.onPrimaryContainer,
+                      _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                      size: 42,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   _isRecording
                       ? '● Listening ($minutes:$seconds)... Speak now'
                       : 'Tap microphone to speak with RemembrAI',
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: _isRecording ? Colors.red : null,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: _isRecording ? AppColors.error : AppColors.foreground(context),
                   ),
                 ),
                 if (_isRecording)
-                  Text(
-                    'Tap stop when you are done speaking',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.red.shade400),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'Tap stop when you are done speaking',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+                    ),
                   ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
 
           // Quick Preset Prompts
-          Text('Or test with sample note:', style: theme.textTheme.labelSmall),
-          const SizedBox(height: 6),
+          Text(
+            'TEST WITH SAMPLE CONVERSATION',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.muted(context),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           Wrap(
-            spacing: 8,
-            runSpacing: 6,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: _sampleVoiceTranscripts.entries.map((e) {
               return ActionChip(
-                visualDensity: VisualDensity.compact,
                 label: Text(e.key, style: const TextStyle(fontSize: 11)),
                 onPressed: () {
+                  AppHaptics.lightImpact();
                   setState(() {
                     _transcriptController.text = e.value;
                     _selectedLanguage = e.key;
@@ -446,66 +502,49 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
 
           // Live Transcript Box
-          TextField(
+          AppTextField(
             controller: _transcriptController,
+            label: 'Live Voice Transcript',
+            hintText: 'Your spoken words will appear here in real-time as you speak...',
             maxLines: 4,
-            decoration: InputDecoration(
-              labelText: 'Live Voice Transcript',
-              hintText: 'Your spoken words will appear here in real-time as you talk...',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              suffixIcon: _transcriptController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => setState(() => _transcriptController.clear()),
-                    )
-                  : null,
-            ),
+            suffixIcon: _transcriptController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 18),
+                    onPressed: () => setState(() => _transcriptController.clear()),
+                  )
+                : null,
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
 
           // Action 1: Instant Setup for Me (1-Tap)
-          FilledButton.icon(
+          AppButton(
+            label: _isProcessing ? 'Analyzing & Setting Up...' : 'Decode & Setup for Me (1-Tap)',
+            icon: Icons.bolt_rounded,
+            fullWidth: true,
+            size: AppButtonSize.lg,
+            loading: _isProcessing,
             onPressed: (_isRecording || _isProcessing || _transcriptController.text.isEmpty)
                 ? null
                 : () => _decodeAndSetup(autoSetup: true),
-            icon: _isProcessing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.bolt),
-            label: Text(
-              _isProcessing
-                  ? 'Analyzing & Setting Up...'
-                  : 'Decode & Setup for Me (1-Tap)',
-            ),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
-              backgroundColor: theme.colorScheme.primary,
-            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
 
           // Action 2: Review & Edit Details
-          OutlinedButton.icon(
+          AppButton(
+            label: 'Review & Fine-Tune Details First',
+            icon: Icons.tune_rounded,
+            variant: AppButtonVariant.secondary,
+            fullWidth: true,
+            size: AppButtonSize.md,
             onPressed: (_isRecording || _isProcessing || _transcriptController.text.isEmpty)
                 ? null
                 : () => _decodeAndSetup(autoSetup: false),
-            icon: const Icon(Icons.tune),
-            label: const Text('Review & Fine-Tune Details First'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(46),
-            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.xxl),
         ],
       ),
     );

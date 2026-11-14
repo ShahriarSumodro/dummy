@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import '../models/meeting.dart';
 import '../models/commitment.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'meeting_form_screen.dart';
 
 /// Screen displaying the meeting summary, decisions, action items, and raw notes.
@@ -38,6 +41,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   }
 
   Future<void> _convertActionItemToCommitment(String actionText) async {
+    AppHaptics.success();
     final commitment = Commitment(
       title: actionText,
       description: 'Extracted from meeting: "${_meeting?.title}"',
@@ -49,14 +53,17 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Created commitment: "$actionText"'),
-          backgroundColor: Colors.green,
+          content: Text('Created promise: "$actionText"'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
         ),
       );
     }
   }
 
   Future<void> _deleteMeeting() async {
+    AppHaptics.warning();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -69,7 +76,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -77,6 +84,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     );
 
     if (confirmed == true && mounted) {
+      AppHaptics.success();
       await _db.deleteMeeting(widget.meetingId);
       if (mounted) {
         Navigator.pop(context, true);
@@ -86,6 +94,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
 
   void _exportMeetingMinutes() {
     if (_meeting == null) return;
+    AppHaptics.lightImpact();
     final m = _meeting!;
     final dateFormat = DateFormat('EEEE, MMM d, yyyy · h:mm a');
     final buffer = StringBuffer();
@@ -127,9 +136,10 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Meeting minutes copied to clipboard in markdown.'),
+      SnackBar(
+        content: const Text('Meeting minutes copied to clipboard in markdown.'),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
       ),
     );
   }
@@ -138,25 +148,43 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
+        backgroundColor: AppColors.background(context),
         appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
+        body: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: const [
+            AppSkeleton(height: 120),
+            SizedBox(height: AppSpacing.md),
+            AppSkeleton(height: 160),
+            SizedBox(height: AppSpacing.md),
+            AppSkeleton(height: 140),
+          ],
+        ),
       );
     }
 
     if (_meeting == null) {
       return Scaffold(
+        backgroundColor: AppColors.background(context),
         appBar: AppBar(),
-        body: const Center(child: Text('Meeting not found')),
+        body: const Center(
+          child: AppEmptyState(
+            icon: Icons.meeting_room_outlined,
+            title: 'Meeting not found',
+            message: 'This meeting entry may have been removed.',
+          ),
+        ),
       );
     }
 
     final m = _meeting!;
-    final theme = Theme.of(context);
     final dateFormat = DateFormat('EEEE, MMM d, yyyy · h:mm a');
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: Text(m.title),
+        titleSpacing: 0,
+        title: Text(m.title, style: const TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined),
@@ -165,12 +193,12 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit Meeting',
             onPressed: () async {
+              AppHaptics.lightImpact();
               final updated = await Navigator.push<Meeting>(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => MeetingFormScreen(meeting: m),
-                ),
+                MaterialPageRoute(builder: (_) => MeetingFormScreen(meeting: m)),
               );
               if (updated != null) {
                 await _db.updateMeeting(updated);
@@ -179,151 +207,140 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: 'Delete Meeting',
             onPressed: _deleteMeeting,
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
         children: [
-          // Meta details card
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          // Meta Details Card
+          AppCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      dateFormat.format(m.meetingDate),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ],
+                ),
+                if (m.location != null && m.location!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 18),
-                      const SizedBox(width: 8),
-                      Text(dateFormat.format(m.meetingDate)),
+                      Icon(Icons.location_on_outlined, size: 16, color: AppColors.muted(context)),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(m.location!, style: TextStyle(fontSize: 13, color: AppColors.muted(context))),
                     ],
                   ),
-                  if (m.location != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 18),
-                        const SizedBox(width: 8),
-                        Text(m.location!),
-                      ],
-                    ),
-                  ],
-                  if (m.organizationName != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.business_outlined, size: 18),
-                        const SizedBox(width: 8),
-                        Text(m.organizationName!),
-                      ],
-                    ),
-                  ],
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Summary Section
-          if (m.summary != null && m.summary!.isNotEmpty) ...[
-            Text(
-              'Executive Summary',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Text(
-                  m.summary!,
-                  style: const TextStyle(height: 1.4, fontSize: 14),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-
-          // Decisions Section
-          if (m.decisions.isNotEmpty) ...[
-            Text(
-              'Decisions Made (${m.decisions.length})',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...m.decisions.map((d) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.check_circle, color: Colors.green),
-                    title: Text(d),
+                if (m.organizationName != null && m.organizationName!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Icon(Icons.business_outlined, size: 16, color: AppColors.muted(context)),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(m.organizationName!, style: TextStyle(fontSize: 13, color: AppColors.muted(context))),
+                    ],
                   ),
-                )),
-            const SizedBox(height: 20),
-          ],
-
-          // Action Items Section
-          if (m.actionItems.isNotEmpty) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Action Items (${m.actionItems.length})',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Tap + to track',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.outline,
-                  ),
-                ),
+                ],
               ],
             ),
-            const SizedBox(height: 8),
-            ...m.actionItems.map((a) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.task_alt, color: Colors.blue),
-                    title: Text(a),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.add_task),
-                      tooltip: 'Convert to tracked commitment',
-                      onPressed: () => _convertActionItemToCommitment(a),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Executive Summary
+          if (m.summary != null && m.summary!.isNotEmpty) ...[
+            AppSectionHeader(title: 'Executive Summary'),
+            const SizedBox(height: AppSpacing.xs),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                m.summary!,
+                style: const TextStyle(fontSize: 14, height: 1.55),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          // Key Decisions
+          if (m.decisions.isNotEmpty) ...[
+            AppSectionHeader(
+              title: 'Key Decisions',
+              count: m.decisions.length,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                children: m.decisions.map((d) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.success),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(d, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          // Action Items
+          if (m.actionItems.isNotEmpty) ...[
+            AppSectionHeader(
+              title: 'Action Items',
+              count: m.actionItems.length,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ...m.actionItems.map((action) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: AppListRow(
+                    leading: const Icon(Icons.task_alt_rounded, size: 18, color: AppColors.primary),
+                    title: action,
+                    trailing: AppButton(
+                      label: '+ Promise',
+                      size: AppButtonSize.sm,
+                      variant: AppButtonVariant.tonal,
+                      onPressed: () => _convertActionItemToCommitment(action),
                     ),
                   ),
                 )),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
           ],
 
-          // Raw Notes Section
+          // Discussion Notes
           if (m.rawNotes != null && m.rawNotes!.isNotEmpty) ...[
-            Text(
-              'Raw Meeting Notes',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: SelectableText(
-                  m.rawNotes!,
-                  style: const TextStyle(fontSize: 13, height: 1.4),
+            AppSectionHeader(title: 'Discussion Notes'),
+            const SizedBox(height: AppSpacing.xs),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                m.rawNotes!,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.55,
+                  color: AppColors.foreground(context),
                 ),
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: AppSpacing.lg),
           ],
         ],
       ),
