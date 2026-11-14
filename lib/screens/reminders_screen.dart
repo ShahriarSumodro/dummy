@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/reminder.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'reminder_form_screen.dart';
 
 /// Reminders screen with tabs for filtering (Pending, Completed, All).
@@ -33,6 +36,7 @@ class _RemindersScreenState extends State<RemindersScreen>
     _tabController = TabController(length: _filters.length, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
+        AppHaptics.lightImpact();
         _statusFilter = _filters[_tabController.index].status;
         _loadReminders();
       }
@@ -57,6 +61,7 @@ class _RemindersScreenState extends State<RemindersScreen>
   }
 
   Future<void> _addReminder() async {
+    AppHaptics.lightImpact();
     final result = await Navigator.push<Reminder>(
       context,
       MaterialPageRoute(builder: (_) => const ReminderFormScreen()),
@@ -68,6 +73,7 @@ class _RemindersScreenState extends State<RemindersScreen>
   }
 
   Future<void> _editReminder(Reminder reminder) async {
+    AppHaptics.lightImpact();
     final result = await Navigator.push<Reminder>(
       context,
       MaterialPageRoute(
@@ -81,6 +87,7 @@ class _RemindersScreenState extends State<RemindersScreen>
   }
 
   Future<void> _toggleStatus(Reminder reminder) async {
+    AppHaptics.mediumImpact();
     final isDone = reminder.status == ReminderStatus.completed;
     final updated = reminder.copyWith(
       status: isDone ? ReminderStatus.pending : ReminderStatus.completed,
@@ -90,6 +97,7 @@ class _RemindersScreenState extends State<RemindersScreen>
   }
 
   Future<void> _snooze(Reminder reminder, Duration duration) async {
+    AppHaptics.lightImpact();
     final updated = reminder.copyWith(
       remindAt: DateTime.now().add(duration),
       status: ReminderStatus.snoozed,
@@ -104,6 +112,8 @@ class _RemindersScreenState extends State<RemindersScreen>
                 ? 'Snoozed until tomorrow'
                 : 'Snoozed for ${duration.inHours} hour(s)',
           ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -111,6 +121,7 @@ class _RemindersScreenState extends State<RemindersScreen>
   }
 
   Future<void> _deleteReminder(Reminder reminder) async {
+    AppHaptics.warning();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -123,7 +134,7 @@ class _RemindersScreenState extends State<RemindersScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -131,6 +142,7 @@ class _RemindersScreenState extends State<RemindersScreen>
     );
 
     if (confirmed == true && mounted) {
+      AppHaptics.success();
       await _db.deleteReminder(reminder.id!);
       _loadReminders();
     }
@@ -138,147 +150,121 @@ class _RemindersScreenState extends State<RemindersScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Reminders'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: _filters.map((f) => Tab(text: f.label)).toList(),
+        titleSpacing: AppSpacing.md,
+        title: const Text('Reminders', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            height: 40,
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.subtle(context),
+              borderRadius: BorderRadius.circular(AppRadius.full),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.muted(context),
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+              tabs: _filters.map((f) => Tab(text: f.label)).toList(),
+            ),
+          ),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _reminders.isEmpty
-              ? _buildEmptyState(theme)
-              : _buildList(theme),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addReminder,
-        child: const Icon(Icons.add_alarm),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.notifications_outlined,
-              size: 80,
-              color: theme.colorScheme.primary.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No reminders found',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Set reminders so you never forget a commitment or meeting follow-up.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          ? ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              itemCount: 6,
+              itemBuilder: (_, __) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: AppSkeleton(height: 72, borderRadius: BorderRadius.circular(AppRadius.lg)),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            )
+          : _reminders.isEmpty
+              ? Center(
+                  child: AppEmptyState(
+                    icon: Icons.notifications_outlined,
+                    title: 'No reminders found',
+                    message: 'Set reminders so you never forget a commitment, meeting follow-up, or deadline.',
+                    actionLabel: 'Add Reminder',
+                    onAction: _addReminder,
+                  ),
+                )
+              : _buildList(),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: FloatingActionButton(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          onPressed: _addReminder,
+          child: const Icon(Icons.add_alarm_rounded),
         ),
       ),
     );
   }
 
-  Widget _buildList(ThemeData theme) {
+  Widget _buildList() {
     final timeFormat = DateFormat('EEE, MMM d · h:mm a');
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 100),
       itemCount: _reminders.length,
       itemBuilder: (context, index) {
         final r = _reminders[index];
         final isCompleted = r.status == ReminderStatus.completed;
         final isPastDue = r.isPastDue;
 
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: ListTile(
-            leading: IconButton(
-              icon: Icon(
-                isCompleted
-                    ? Icons.check_circle
-                    : (isPastDue
-                        ? Icons.warning_amber_rounded
-                        : Icons.alarm),
-                color: isCompleted
-                    ? Colors.green
-                    : (isPastDue ? theme.colorScheme.error : theme.colorScheme.primary),
-              ),
-              onPressed: () => _toggleStatus(r),
-            ),
-            title: Text(
-              r.title,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                decoration: isCompleted ? TextDecoration.lineThrough : null,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time,
-                      size: 14,
-                      color: isPastDue ? theme.colorScheme.error : theme.colorScheme.outline,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      timeFormat.format(r.remindAt),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isPastDue ? theme.colorScheme.error : null,
-                        fontWeight: isPastDue ? FontWeight.bold : null,
-                      ),
-                    ),
-                    if (r.isRecurring) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          r.recurringRule ?? 'repeat',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: theme.colorScheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: AppListRow(
+            leading: InkWell(
+              onTap: () => _toggleStatus(r),
+              borderRadius: BorderRadius.circular(AppRadius.full),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  isCompleted
+                      ? Icons.check_circle_rounded
+                      : (isPastDue ? Icons.warning_amber_rounded : Icons.alarm_rounded),
+                  color: isCompleted
+                      ? AppColors.success
+                      : (isPastDue ? AppColors.error : AppColors.primary),
+                  size: 22,
                 ),
-                if (r.contactName != null || r.commitmentTitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    [
-                      if (r.contactName != null) '👤 ${r.contactName}',
-                      if (r.commitmentTitle != null) '🤝 ${r.commitmentTitle}',
-                    ].join(' · '),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
+            title: r.title,
+            subtitle: [
+              timeFormat.format(r.remindAt),
+              if (r.contactName != null) '👤 ${r.contactName}',
+              if (r.commitmentTitle != null) '🤝 ${r.commitmentTitle}',
+            ].join(' · '),
+            badge: r.isRecurring
+                ? AppBadge(label: r.recurringRule ?? 'repeat', variant: AppBadgeVariant.neutral)
+                : (isPastDue && !isCompleted
+                    ? const AppBadge(label: 'Past Due', variant: AppBadgeVariant.error)
+                    : null),
             trailing: PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert_rounded, size: 18, color: AppColors.muted(context)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
               onSelected: (val) {
                 switch (val) {
                   case 'edit':
@@ -303,7 +289,7 @@ class _RemindersScreenState extends State<RemindersScreen>
                 ],
                 const PopupMenuItem(
                   value: 'delete',
-                  child: Text('Delete', style: TextStyle(color: Colors.red)),
+                  child: Text('Delete', style: TextStyle(color: AppColors.error)),
                 ),
               ],
             ),

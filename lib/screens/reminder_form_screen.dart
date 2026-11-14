@@ -4,6 +4,9 @@ import '../models/reminder.dart';
 import '../models/contact.dart';
 import '../models/commitment.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Form screen for creating or editing a reminder.
 class ReminderFormScreen extends StatefulWidget {
@@ -45,18 +48,15 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController =
-        TextEditingController(text: widget.reminder?.title ?? '');
-    _notesController =
-        TextEditingController(text: widget.reminder?.notes ?? '');
+    _titleController = TextEditingController(text: widget.reminder?.title ?? '');
+    _notesController = TextEditingController(text: widget.reminder?.notes ?? '');
 
     if (widget.reminder != null) {
       _remindAt = widget.reminder!.remindAt;
       _isRecurring = widget.reminder!.isRecurring;
       _recurringRule = widget.reminder!.recurringRule;
     } else if (widget.preselectedCommitment != null) {
-      _titleController.text =
-          'Follow up: ${widget.preselectedCommitment!.title}';
+      _titleController.text = 'Follow up: ${widget.preselectedCommitment!.title}';
       if (widget.preselectedCommitment!.dueDate != null) {
         _remindAt = widget.preselectedCommitment!.dueDate!;
       }
@@ -105,6 +105,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   }
 
   Future<void> _pickDateTime() async {
+    AppHaptics.lightImpact();
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
@@ -135,13 +136,12 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    AppHaptics.success();
 
     final reminder = Reminder(
       id: widget.reminder?.id,
       title: _titleController.text.trim(),
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       commitmentId: _selectedCommitment?.id,
       contactId: _selectedContact?.id,
       remindAt: _remindAt,
@@ -161,153 +161,218 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
     final dateFormat = DateFormat('EEE, MMM d, yyyy · h:mm a');
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Reminder' : 'New Reminder'),
+        title: Text(_isEditing ? 'Edit Reminder' : 'New Reminder', style: const TextStyle(fontWeight: FontWeight.w700)),
         actions: [
-          TextButton(onPressed: _save, child: const Text('Save')),
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: AppButton(
+              label: 'Save',
+              size: AppButtonSize.sm,
+              onPressed: _save,
+            ),
+          ),
         ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           children: [
-            TextFormField(
+            AppTextField(
               controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Reminder title *',
-                hintText: 'e.g. Call client about quotation',
-                prefixIcon: Icon(Icons.alarm),
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.sentences,
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Please enter a reminder title'
-                  : null,
+              label: 'Reminder Title *',
+              hintText: 'e.g. Call client about contract follow-up',
+              prefixIcon: Icons.alarm_rounded,
               autofocus: !_isEditing,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter a reminder title' : null,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
-            TextFormField(
+            AppTextField(
               controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-                hintText: 'Additional details or context...',
-                prefixIcon: Icon(Icons.notes_outlined),
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
+              label: 'Notes & Context (optional)',
+              hintText: 'Any specifics to keep in mind...',
+              prefixIcon: Icons.notes_rounded,
               maxLines: 3,
-              textCapitalization: TextCapitalization.sentences,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
-            // Remind at DateTime picker tile
-            ListTile(
-              shape: RoundedRectangleBorder(
-                side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              leading: const Icon(Icons.calendar_month_outlined),
-              title: const Text('Remind At'),
-              subtitle: Text(
-                dateFormat.format(_remindAt),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              trailing: const Icon(Icons.edit_calendar),
+            // Remind At Card
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
               onTap: _pickDateTime,
-            ),
-            const SizedBox(height: 16),
-
-            // Recurring options
-            SwitchListTile(
-              title: const Text('Repeat Reminder'),
-              subtitle: Text(_isRecurring ? 'Recurring active' : 'One-time reminder'),
-              value: _isRecurring,
-              onChanged: (val) {
-                setState(() {
-                  _isRecurring = val;
-                  if (val && _recurringRule == null) {
-                    _recurringRule = 'daily';
-                  }
-                });
-              },
-            ),
-
-            if (_isRecurring) ...[
-              const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'daily', label: Text('Daily')),
-                  ButtonSegment(value: 'weekly', label: Text('Weekly')),
-                  ButtonSegment(value: 'monthly', label: Text('Monthly')),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month_rounded, size: 20, color: AppColors.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'REMIND AT',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: AppColors.muted(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          dateFormat.format(_remindAt),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.edit_calendar_rounded, size: 18, color: Colors.grey),
                 ],
-                selected: {_recurringRule ?? 'daily'},
-                onSelectionChanged: (val) {
-                  setState(() => _recurringRule = val.first);
-                },
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
+            const SizedBox(height: AppSpacing.md),
 
-            const Divider(height: 32),
+            // Repeat Reminder
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.repeat_rounded, size: 20, color: _isRecurring ? AppColors.primary : Colors.grey),
+                          const SizedBox(width: AppSpacing.sm),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Repeat Reminder', style: TextStyle(fontWeight: FontWeight.w600)),
+                              Text(
+                                _isRecurring ? 'Repeats on schedule' : 'One-time reminder',
+                                style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Switch(
+                        value: _isRecurring,
+                        activeColor: AppColors.primary,
+                        onChanged: (val) {
+                          AppHaptics.lightImpact();
+                          setState(() {
+                            _isRecurring = val;
+                            if (val && _recurringRule == null) {
+                              _recurringRule = 'daily';
+                            }
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  if (_isRecurring) ...[
+                    const Divider(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      children: ['daily', 'weekly', 'monthly'].map((rule) {
+                        final isSel = (_recurringRule ?? 'daily') == rule;
+                        return ChoiceChip(
+                          label: Text(rule[0].toUpperCase() + rule.substring(1)),
+                          selected: isSel,
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSel ? FontWeight.w600 : FontWeight.w500,
+                            color: isSel ? Colors.white : AppColors.foreground(context),
+                          ),
+                          onSelected: (_) {
+                            AppHaptics.lightImpact();
+                            setState(() => _recurringRule = rule);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
 
-            // Link contact & commitment
+            // Link to Contact and Commitment
             if (_loadingRelations)
               const LinearProgressIndicator()
             else ...[
-              DropdownButtonFormField<int>(
-                key: ValueKey(_selectedContact?.id),
-                initialValue: _selectedContact?.id,
-                decoration: const InputDecoration(
-                  labelText: 'Link to Contact (optional)',
-                  prefixIcon: Icon(Icons.person_outline),
-                  border: OutlineInputBorder(),
+              AppCard(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LINKED CONTEXT',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.muted(context),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DropdownButtonFormField<int>(
+                      value: _selectedContact?.id,
+                      decoration: InputDecoration(
+                        labelText: 'Associated Contact',
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('None')),
+                        ..._contacts.map((c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(c.name),
+                            )),
+                      ],
+                      onChanged: (id) {
+                        setState(() {
+                          _selectedContact = id == null
+                              ? null
+                              : _contacts.firstWhere((c) => c.id == id);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    DropdownButtonFormField<int>(
+                      value: _selectedCommitment?.id,
+                      decoration: InputDecoration(
+                        labelText: 'Associated Promise / Meeting',
+                        prefixIcon: const Icon(Icons.handshake_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('None')),
+                        ..._commitments.map((c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(c.title, overflow: TextOverflow.ellipsis),
+                            )),
+                      ],
+                      onChanged: (id) {
+                        setState(() {
+                          _selectedCommitment = id == null
+                              ? null
+                              : _commitments.firstWhere((c) => c.id == id);
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('None')),
-                  ..._contacts.map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(c.name),
-                      )),
-                ],
-                onChanged: (id) {
-                  setState(() {
-                    _selectedContact = id == null
-                        ? null
-                        : _contacts.firstWhere((c) => c.id == id);
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              DropdownButtonFormField<int>(
-                key: ValueKey(_selectedCommitment?.id),
-                initialValue: _selectedCommitment?.id,
-                decoration: const InputDecoration(
-                  labelText: 'Link to Commitment (optional)',
-                  prefixIcon: Icon(Icons.handshake_outlined),
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('None')),
-                  ..._commitments.map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(
-                          c.title,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )),
-                ],
-                onChanged: (id) {
-                  setState(() {
-                    _selectedCommitment = id == null
-                        ? null
-                        : _commitments.firstWhere((c) => c.id == id);
-                  });
-                },
               ),
             ],
+            const SizedBox(height: AppSpacing.xl),
           ],
         ),
       ),
