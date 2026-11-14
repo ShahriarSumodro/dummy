@@ -4,6 +4,9 @@ import '../models/commitment.dart';
 import '../models/meeting.dart';
 import '../models/organization.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'contact_detail_screen.dart';
 import 'commitment_detail_screen.dart';
 import 'meeting_detail_screen.dart';
@@ -68,23 +71,26 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final hasResults = _contacts.isNotEmpty ||
         _commitments.isNotEmpty ||
         _meetings.isNotEmpty ||
         _orgs.isNotEmpty;
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
+        titleSpacing: 0,
         title: TextField(
           controller: _searchController,
           autofocus: true,
+          style: const TextStyle(fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Search people, promises, meetings...',
+            hintStyle: TextStyle(color: AppColors.muted(context), fontSize: 15),
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear),
+                    icon: const Icon(Icons.clear_rounded, size: 18),
                     onPressed: () {
                       _searchController.clear();
                       _performSearch('');
@@ -96,141 +102,121 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         ),
       ),
       body: _isSearching
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _currentQuery.isEmpty
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search,
-                          size: 70,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Search your complete business memory',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Type a person name, company, topic, or keyword to instantly find relevant records.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+                  child: AppEmptyState(
+                    icon: Icons.search_rounded,
+                    title: 'Search everything in RemembrAI',
+                    message: 'Find contacts, promises, meeting notes, companies, or commitments by keyword.',
                   ),
                 )
               : !hasResults
                   ? Center(
-                      child: Text('No memories match "$_currentQuery"'),
+                      child: AppEmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: 'No results found',
+                        message: 'No matches found for "$_currentQuery". Try a different keyword or name.',
+                      ),
                     )
                   : ListView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 80),
                       children: [
                         // Contacts
                         if (_contacts.isNotEmpty) ...[
-                          _sectionHeader('People (${_contacts.length})', theme),
-                          ..._contacts.map((c) => ListTile(
-                                leading: CircleAvatar(child: Text(c.initials)),
-                                title: Text(c.name),
-                                subtitle: Text(c.subtitle),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        ContactDetailScreen(contactId: c.id!),
-                                  ),
+                          AppSectionHeader(title: 'Contacts', count: _contacts.length),
+                          const SizedBox(height: AppSpacing.xs),
+                          ..._contacts.map((c) => Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                child: AppListRow(
+                                  leading: AppAvatar(name: c.name, size: AppAvatarSize.sm),
+                                  title: c.name,
+                                  subtitle: c.subtitle.isNotEmpty ? c.subtitle : null,
+                                  trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                                  onTap: () {
+                                    AppHaptics.lightImpact();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => ContactDetailScreen(contactId: c.id!)),
+                                    );
+                                  },
                                 ),
                               )),
-                          const Divider(height: 24),
+                          const SizedBox(height: AppSpacing.md),
                         ],
 
                         // Commitments
                         if (_commitments.isNotEmpty) ...[
-                          _sectionHeader(
-                              'Commitments (${_commitments.length})', theme),
-                          ..._commitments.map((c) => ListTile(
-                                leading: const Icon(Icons.handshake_outlined),
-                                title: Text(c.title),
-                                subtitle: Text(
-                                    '${c.type.label} · ${c.status.label}${c.contactName != null ? " with ${c.contactName}" : ""}'),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => CommitmentDetailScreen(
-                                      commitmentId: c.id!,
-                                    ),
-                                  ),
+                          AppSectionHeader(title: 'Promises & Commitments', count: _commitments.length),
+                          const SizedBox(height: AppSpacing.xs),
+                          ..._commitments.map((cm) => Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                child: AppListRow(
+                                  leading: const Icon(Icons.handshake_outlined, size: 18, color: AppColors.primary),
+                                  title: cm.title,
+                                  subtitle: '${cm.type.label} · ${cm.status.label}',
+                                  trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                                  onTap: () {
+                                    AppHaptics.lightImpact();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => CommitmentDetailScreen(commitmentId: cm.id!)),
+                                    );
+                                  },
                                 ),
                               )),
-                          const Divider(height: 24),
+                          const SizedBox(height: AppSpacing.md),
                         ],
 
                         // Meetings
                         if (_meetings.isNotEmpty) ...[
-                          _sectionHeader('Meetings (${_meetings.length})', theme),
-                          ..._meetings.map((m) => ListTile(
-                                leading: const Icon(Icons.meeting_room_outlined),
-                                title: Text(m.title),
-                                subtitle: Text(
-                                    m.summary ?? m.rawNotes ?? 'No notes recorded'),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        MeetingDetailScreen(meetingId: m.id!),
-                                  ),
+                          AppSectionHeader(title: 'Meetings', count: _meetings.length),
+                          const SizedBox(height: AppSpacing.xs),
+                          ..._meetings.map((m) => Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                child: AppListRow(
+                                  leading: const Icon(Icons.groups_rounded, size: 18, color: AppColors.primary),
+                                  title: m.title,
+                                  subtitle: [
+                                    m.meetingDate.toLocal().toString().substring(0, 10),
+                                    if (m.location != null) m.location!,
+                                  ].join(' · '),
+                                  trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                                  onTap: () {
+                                    AppHaptics.lightImpact();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => MeetingDetailScreen(meetingId: m.id!)),
+                                    );
+                                  },
                                 ),
                               )),
-                          const Divider(height: 24),
+                          const SizedBox(height: AppSpacing.md),
                         ],
 
                         // Organizations
                         if (_orgs.isNotEmpty) ...[
-                          _sectionHeader(
-                              'Companies (${_orgs.length})', theme),
-                          ..._orgs.map((o) => ListTile(
-                                leading: const Icon(Icons.business_outlined),
-                                title: Text(o.name),
-                                subtitle: o.industry != null
-                                    ? Text(o.industry!)
-                                    : null,
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => OrganizationDetailScreen(
-                                      organizationId: o.id!,
-                                    ),
-                                  ),
+                          AppSectionHeader(title: 'Companies', count: _orgs.length),
+                          const SizedBox(height: AppSpacing.xs),
+                          ..._orgs.map((org) => Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                child: AppListRow(
+                                  leading: AppAvatar(name: org.name, size: AppAvatarSize.sm),
+                                  title: org.name,
+                                  subtitle: org.industry,
+                                  trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                                  onTap: () {
+                                    AppHaptics.lightImpact();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => OrganizationDetailScreen(organizationId: org.id!)),
+                                    );
+                                  },
                                 ),
                               )),
                         ],
-                        const SizedBox(height: 40),
                       ],
                     ),
-    );
-  }
-
-  Widget _sectionHeader(String title, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.primary,
-        ),
-      ),
     );
   }
 }

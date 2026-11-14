@@ -3,6 +3,9 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/ai_query_service.dart';
 import '../services/voice_service.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 class _ChatMessage {
   final String text;
@@ -78,6 +81,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
   }
 
   Future<void> _toggleChatVoiceInput() async {
+    AppHaptics.lightImpact();
     if (_isListening) {
       await _speech.stop();
       setState(() => _isListening = false);
@@ -100,7 +104,11 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
       if (!_speechAvailable) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Microphone permission or speech recognition unavailable.')),
+            SnackBar(
+              content: const Text('Microphone permission or speech recognition unavailable.'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            ),
           );
         }
         return;
@@ -148,6 +156,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty || _isThinking) return;
 
+    AppHaptics.lightImpact();
     setState(() {
       _messages.add(_ChatMessage(text: cleanQuery, isUser: true));
       _isThinking = true;
@@ -200,15 +209,23 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Row(
+        titleSpacing: 0,
+        title: Row(
           children: [
-            Icon(Icons.psychology, size: 24),
-            SizedBox(width: 8),
-            Text('Memory Assistant'),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Icon(Icons.psychology_rounded, size: 18, color: AppColors.primary),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Text('Memory Assistant', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ],
         ),
         actions: [
@@ -217,7 +234,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             builder: (context, state, _) {
               if (state == TtsState.playing) {
                 return IconButton(
-                  icon: const Icon(Icons.stop_circle, color: Colors.tealAccent),
+                  icon: const Icon(Icons.stop_circle_rounded, color: AppColors.error),
                   tooltip: 'Stop Speaking',
                   onPressed: () => _voiceService.stop(),
                 );
@@ -226,16 +243,16 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             tooltip: 'New Conversation Session',
             onPressed: () {
+              AppHaptics.lightImpact();
               _voiceService.stop();
               setState(() {
                 _messages.clear();
                 _messages.add(
                   _ChatMessage(
-                    text:
-                        'Session restarted. What would you like to review or plan?',
+                    text: 'Session restarted. What would you like to review or plan?',
                     isUser: false,
                     suggestedNextActions: _sampleQuestions,
                   ),
@@ -243,6 +260,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
               });
             },
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: Column(
@@ -250,30 +268,31 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final msg = _messages[index];
-                return _buildMessageBubble(msg, theme);
+                return _buildMessageBubble(msg);
               },
             ),
           ),
 
           if (_isThinking)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
               child: Row(
                 children: [
                   const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Text(
                     'Searching verified memory...',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted(context),
                     ),
                   ),
                 ],
@@ -282,11 +301,11 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
 
           // Input Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: AppColors.surface(context),
               border: Border(
-                top: BorderSide(color: theme.colorScheme.outlineVariant),
+                top: BorderSide(color: AppColors.border(context), width: 0.5),
               ),
             ),
             child: SafeArea(
@@ -296,33 +315,44 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                     child: TextField(
                       controller: _textController,
                       textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Ask your memory (e.g. What did I promise?)...',
+                        hintText: 'Ask memory (e.g. What did I promise?)...',
+                        hintStyle: TextStyle(fontSize: 13, color: AppColors.muted(context)),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(AppRadius.full),
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        fillColor: AppColors.subtle(context),
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
+                          horizontal: AppSpacing.md,
                           vertical: 10,
                         ),
                       ),
                       onSubmitted: _sendQuery,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.xs),
                   IconButton(
-                    icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
-                    color: _isListening ? Colors.red : theme.colorScheme.primary,
+                    icon: Icon(_isListening ? Icons.mic_rounded : Icons.mic_none_rounded),
+                    color: _isListening ? AppColors.error : AppColors.primary,
                     tooltip: _isListening ? 'Listening... Tap to send' : 'Speak Question',
                     onPressed: _toggleChatVoiceInput,
                   ),
-                  const SizedBox(width: 4),
-                  IconButton.filled(
-                    icon: const Icon(Icons.arrow_upward),
-                    onPressed: () => _sendQuery(_textController.text),
+                  const SizedBox(width: 2),
+                  InkWell(
+                    onTap: () => _sendQuery(_textController.text),
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+                    ),
                   ),
                 ],
               ),
@@ -333,23 +363,31 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(_ChatMessage msg, ThemeData theme) {
+  Widget _buildMessageBubble(_ChatMessage msg) {
     return Align(
       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.85,
         ),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: msg.isUser
-              ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: msg.isUser ? const Radius.circular(0) : null,
-            bottomLeft: !msg.isUser ? const Radius.circular(0) : null,
+              ? AppColors.primary
+              : AppColors.surface(context),
+          borderRadius: BorderRadius.circular(AppRadius.lg).copyWith(
+            bottomRight: msg.isUser ? const Radius.circular(2) : null,
+            bottomLeft: !msg.isUser ? const Radius.circular(2) : null,
           ),
+          border: !msg.isUser ? Border.all(color: AppColors.border(context), width: 0.5) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,39 +395,30 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             SelectableText(
               msg.text,
               style: TextStyle(
-                color: msg.isUser
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurface,
+                color: msg.isUser ? Colors.white : AppColors.foreground(context),
                 fontSize: 14,
-                height: 1.4,
+                height: 1.5,
               ),
             ),
 
             if (msg.sourceReferences.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.xs),
               Wrap(
-                spacing: 6,
+                spacing: AppSpacing.xs,
                 runSpacing: 4,
                 children: msg.sourceReferences.map((ref) {
-                  return Chip(
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    label: Text(ref, style: const TextStyle(fontSize: 10)),
-                    backgroundColor: theme.colorScheme.surface,
-                  );
+                  return AppBadge(label: ref, variant: AppBadgeVariant.neutral);
                 }).toList(),
               ),
             ],
 
             if (msg.suggestedNextActions.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
-                spacing: 6,
+                spacing: AppSpacing.xs,
                 runSpacing: 4,
                 children: msg.suggestedNextActions.map((action) {
                   return ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     label: Text(action, style: const TextStyle(fontSize: 11)),
                     onPressed: () => _sendQuery(action),
                   );
@@ -398,7 +427,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             ],
 
             if (!msg.isUser) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -407,19 +436,20 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                     builder: (context, speakingText, _) {
                       final isThisSpeaking = speakingText == msg.text;
                       return InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () => _voiceService.speak(msg.text),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        onTap: () {
+                          AppHaptics.lightImpact();
+                          _voiceService.speak(msg.text);
+                        },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                isThisSpeaking ? Icons.volume_up : Icons.volume_down_outlined,
-                                size: 16,
-                                color: isThisSpeaking
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurfaceVariant,
+                                isThisSpeaking ? Icons.volume_up_rounded : Icons.volume_down_outlined,
+                                size: 15,
+                                color: isThisSpeaking ? AppColors.primary : AppColors.muted(context),
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -427,9 +457,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: isThisSpeaking ? FontWeight.bold : FontWeight.normal,
-                                  color: isThisSpeaking
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.onSurfaceVariant,
+                                  color: isThisSpeaking ? AppColors.primary : AppColors.muted(context),
                                 ),
                               ),
                             ],

@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Data Privacy, Security, Export, and Deletion screen.
 class DataPrivacyScreen extends StatefulWidget {
@@ -16,6 +19,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   bool _isExporting = false;
 
   Future<void> _exportDataJson() async {
+    AppHaptics.mediumImpact();
     setState(() => _isExporting = true);
     try {
       final jsonMap = await _db.exportDatabaseJson();
@@ -24,6 +28,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
       await Clipboard.setData(ClipboardData(text: jsonStr));
 
       if (mounted) {
+        AppHaptics.success();
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
@@ -42,9 +47,8 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+        AppHaptics.warning();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -52,6 +56,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   }
 
   Future<void> _importDataJson() async {
+    AppHaptics.lightImpact();
     final controller = TextEditingController();
     final jsonStr = await showDialog<String>(
       context: context,
@@ -80,24 +85,29 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
 
     if (jsonStr != null && jsonStr.trim().isNotEmpty) {
       try {
+        AppHaptics.mediumImpact();
         final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
         final count = await _db.restoreDatabaseJson(parsed);
         if (mounted) {
+          AppHaptics.success();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Successfully restored $count records into your database!',
-              ),
-              backgroundColor: Colors.green,
+              content: Text('Successfully restored $count records into your database!'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
             ),
           );
         }
       } catch (e) {
         if (mounted) {
+          AppHaptics.warning();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to parse backup JSON: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
             ),
           );
         }
@@ -106,6 +116,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   }
 
   Future<void> _wipeAllData() async {
+    AppHaptics.warning();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -120,7 +131,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Permanently Erase All Data'),
           ),
         ],
@@ -128,12 +139,15 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
     );
 
     if (confirmed == true && mounted) {
+      AppHaptics.success();
       await _db.clearAllData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All local database records have been erased.'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text('All local database records have been erased.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
         );
         Navigator.pop(context);
@@ -143,83 +157,88 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Data Privacy & Security')),
+      backgroundColor: AppColors.background(context),
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: const Text('Data Privacy & Security', style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.lock_outline,
-                        color: theme.colorScheme.primary,
+          // Privacy Banner
+          AppCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
+                    const Text(
+                      '100% Local Device Storage',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '100% Local Device Storage',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'RemembrAI is designed privacy-first. All your contacts, promises, meeting notes, and reminders are stored in an encrypted SQLite database on your device. No cloud sync is active without your explicit instruction.',
-                    style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'RemembrAI is built privacy-first. All your contacts, promises, meeting notes, and reminders reside in an SQLite database on your device. No cloud sync is active without your explicit instruction.',
+                  style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.muted(context)),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
 
-          Text('Data Portability', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.download),
-            title: const Text('Export Complete Memory (JSON)'),
-            subtitle: const Text('Backup all records to a portable JSON file'),
-            trailing: _isExporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.copy),
-            onTap: _isExporting ? null : _exportDataJson,
-          ),
-          ListTile(
-            leading: const Icon(Icons.upload_file),
-            title: const Text('Restore from Backup (JSON)'),
-            subtitle: const Text('Restore or merge records from a backup JSON'),
-            trailing: const Icon(Icons.restore),
-            onTap: _importDataJson,
-          ),
-          const Divider(height: 32),
+          AppSectionHeader(title: 'Data Portability & Backup'),
+          const SizedBox(height: AppSpacing.xs),
 
-          Text('Data Deletion & Retention', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text(
-              'Erase All Personal Data',
-              style: TextStyle(color: Colors.red),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                AppListRow(
+                  leading: const Icon(Icons.download_rounded, size: 20, color: AppColors.primary),
+                  title: 'Export Complete Memory (JSON)',
+                  subtitle: 'Backup all records to a portable JSON file on clipboard',
+                  trailing: _isExporting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        )
+                      : const Icon(Icons.copy_rounded, size: 18, color: Colors.grey),
+                  onTap: _isExporting ? null : _exportDataJson,
+                ),
+                const Divider(height: 1),
+                AppListRow(
+                  leading: const Icon(Icons.upload_file_rounded, size: 20, color: AppColors.primary),
+                  title: 'Restore from Backup (JSON)',
+                  subtitle: 'Restore or merge records from a previous backup JSON',
+                  trailing: const Icon(Icons.restore_rounded, size: 18, color: Colors.grey),
+                  onTap: _importDataJson,
+                ),
+              ],
             ),
-            subtitle: const Text(
-              'Permanently delete all records from this phone',
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          AppSectionHeader(title: 'Data Deletion & Retention'),
+          const SizedBox(height: AppSpacing.xs),
+
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: AppListRow(
+              leading: const Icon(Icons.delete_forever_rounded, color: AppColors.error, size: 22),
+              title: 'Erase All Personal Data',
+              subtitle: 'Permanently wipe all contacts, promises, meetings & settings',
+              onTap: _wipeAllData,
             ),
-            onTap: _wipeAllData,
           ),
         ],
       ),

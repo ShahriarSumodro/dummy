@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/device_event_bus.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'ai_capture_sheet.dart';
 
 /// Hardware Companion & Wearable Simulator Screen.
-/// Proves the 'One Platform, Multiple Interfaces' architecture (Master Prompt Section 3).
+/// Proves the 'One Platform, Multiple Interfaces' architecture.
 class HardwareCompanionScreen extends StatefulWidget {
   const HardwareCompanionScreen({super.key});
 
@@ -32,9 +35,12 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
         setState(() {
           _activeDisplayEvent = event;
         });
+        AppHaptics.mediumImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('📳 [Hardware Haptic Alert] ${event.title}'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -49,6 +55,7 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
   }
 
   void _triggerTestHardwareEvent() {
+    AppHaptics.mediumImpact();
     _bus.dispatch(
       CompanionDeviceEvent(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -61,6 +68,7 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
   }
 
   void _simulateWearableVoiceCapture() {
+    AppHaptics.lightImpact();
     _bus.dispatch(
       CompanionDeviceEvent(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -73,53 +81,56 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => const AiCaptureSheet(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final timeFormat = DateFormat('h:mm a');
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Wearable & Hardware Simulator'),
+        titleSpacing: 0,
+        title: const Text('Wearable & Hardware Simulator', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
         children: [
-          // Architectural explanation
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          // Architectural Banner
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.watch_outlined, size: 22, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.watch_outlined, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
+                      const Text(
                         'One Platform, Multiple Interfaces',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'This simulator demonstrates the event abstraction between the RemembrAI core engine and future wearable wristbands, smart watches, or portable AI pins.',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'This simulator demonstrates the event abstraction between the RemembrAI core engine and future wearable wristbands, smart watches, or portable AI pins.',
-                    style: theme.textTheme.bodySmall?.copyWith(height: 1.3),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
 
           // Wearable Hardware Mockup Display
           Center(
@@ -127,13 +138,13 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
               width: 220,
               height: 220,
               decoration: BoxDecoration(
-                color: Colors.black,
+                color: const Color(0xFF0C0D0E),
                 borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: Colors.grey.shade800, width: 4),
+                border: Border.all(color: Colors.grey.shade800, width: 3),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 16,
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
                 ],
@@ -149,18 +160,14 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
                       Text(
                         timeFormat.format(DateTime.now()),
                         style: const TextStyle(
-                          color: Colors.greenAccent,
+                          color: Color(0xFF22C55E),
                           fontSize: 11,
                           fontFamily: 'monospace',
                         ),
                       ),
                       Icon(
-                        _isDeviceConnected
-                            ? Icons.bluetooth_connected
-                            : Icons.bluetooth_disabled,
-                        color: _isDeviceConnected
-                            ? Colors.blueAccent
-                            : Colors.redAccent,
+                        _isDeviceConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+                        color: _isDeviceConnected ? const Color(0xFF38BDF8) : const Color(0xFFEF4444),
                         size: 14,
                       ),
                     ],
@@ -171,8 +178,7 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
                     const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.shield_moon_outlined,
-                            color: Colors.white38, size: 36),
+                        Icon(Icons.shield_moon_outlined, color: Colors.white38, size: 36),
                         SizedBox(height: 8),
                         Text(
                           'RemembrAI Pin\nStandby',
@@ -192,7 +198,7 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
                         Text(
                           _activeDisplayEvent!.type.label.toUpperCase(),
                           style: const TextStyle(
-                            color: Colors.amberAccent,
+                            color: Color(0xFFFBBF24),
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,
@@ -235,51 +241,64 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
 
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
+          Row(
             children: [
-              FilledButton.tonalIcon(
-                onPressed: _triggerTestHardwareEvent,
-                icon: const Icon(Icons.vibration),
-                label: const Text('Simulate Haptic Alert'),
+              Expanded(
+                child: AppButton(
+                  label: 'Simulate Haptic Alert',
+                  icon: Icons.vibration_rounded,
+                  variant: AppButtonVariant.tonal,
+                  size: AppButtonSize.sm,
+                  onPressed: _triggerTestHardwareEvent,
+                ),
               ),
-              FilledButton.icon(
-                onPressed: _simulateWearableVoiceCapture,
-                icon: const Icon(Icons.mic),
-                label: const Text('Simulate Voice Dictation'),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: AppButton(
+                  label: 'Simulate Voice Pin',
+                  icon: Icons.mic_rounded,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
+                  onPressed: _simulateWearableVoiceCapture,
+                ),
               ),
             ],
           ),
-          const Divider(height: 36),
+          const SizedBox(height: AppSpacing.lg),
 
-          Text('Device Event Stream Log',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              )),
-          const SizedBox(height: 8),
+          AppSectionHeader(
+            title: 'Device Event Stream Log',
+            count: _bus.history.length,
+          ),
+          const SizedBox(height: AppSpacing.xs),
 
           if (_bus.history.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('No events broadcast yet.'),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                'No events broadcast yet.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+              ),
             )
           else
-            ..._bus.history.map((ev) => ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.sensors, size: 18),
-                  title: Text(ev.title),
-                  subtitle: Text('${ev.type.label} · ${ev.summary}'),
-                  trailing: Text(
-                    timeFormat.format(ev.timestamp),
-                    style: theme.textTheme.bodySmall,
+            ..._bus.history.map((ev) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: AppListRow(
+                    leading: const Icon(Icons.sensors_rounded, size: 18, color: AppColors.primary),
+                    title: ev.title,
+                    subtitle: '${ev.type.label} · ${ev.summary}',
+                    trailing: Text(
+                      timeFormat.format(ev.timestamp),
+                      style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                    ),
+                    onTap: () {
+                      AppHaptics.lightImpact();
+                      setState(() => _activeDisplayEvent = ev);
+                    },
                   ),
-                  onTap: () => setState(() => _activeDisplayEvent = ev),
                 )),
-          const SizedBox(height: 40),
         ],
       ),
     );

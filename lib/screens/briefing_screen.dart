@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import '../models/contact.dart';
 import '../services/database_service.dart';
 import '../services/voice_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Pre-Meeting & Executive Daily Briefing Screen.
 class BriefingScreen extends StatefulWidget {
@@ -182,29 +185,35 @@ class _BriefingScreenState extends State<BriefingScreen> {
   }
 
   void _copyBriefing() {
+    AppHaptics.lightImpact();
     Clipboard.setData(ClipboardData(text: _briefingContent));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Briefing copied to clipboard!')),
+      SnackBar(
+        content: const Text('Briefing copied to clipboard!'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Executive Briefing Engine'),
+        titleSpacing: 0,
+        title: const Text('Executive Briefing Engine', style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           ValueListenableBuilder<TtsState>(
             valueListenable: VoiceService().ttsState,
             builder: (context, state, _) {
               final isPlaying = state == TtsState.playing;
               return IconButton(
-                icon: Icon(isPlaying ? Icons.stop_circle : Icons.volume_up),
-                color: isPlaying ? Colors.tealAccent : null,
+                icon: Icon(isPlaying ? Icons.stop_circle_rounded : Icons.volume_up_rounded),
+                color: isPlaying ? AppColors.error : AppColors.primary,
                 tooltip: isPlaying ? 'Stop Audio' : 'Listen Aloud',
                 onPressed: () {
+                  AppHaptics.lightImpact();
                   if (isPlaying) {
                     VoiceService().stop();
                   } else {
@@ -215,53 +224,65 @@ class _BriefingScreenState extends State<BriefingScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.copy),
+            icon: const Icon(Icons.copy_rounded),
             tooltip: 'Copy Briefing',
             onPressed: _copyBriefing,
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Regenerate',
-            onPressed: _generateBriefing,
+            onPressed: () {
+              AppHaptics.lightImpact();
+              _generateBriefing();
+            },
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: const [
+                AppSkeleton(height: 50),
+                SizedBox(height: AppSpacing.md),
+                AppSkeleton(height: 300),
+              ],
+            )
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
               children: [
                 // Selector Row
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(
                       value: true,
-                      icon: Icon(Icons.wb_sunny_outlined),
+                      icon: Icon(Icons.wb_sunny_outlined, size: 16),
                       label: Text('Daily Briefing'),
                     ),
                     ButtonSegment(
                       value: false,
-                      icon: Icon(Icons.person_outline),
+                      icon: Icon(Icons.person_outline, size: 16),
                       label: Text('Contact Dossier'),
                     ),
                   ],
                   selected: {_isDailyBriefing},
                   onSelectionChanged: (set) {
+                    AppHaptics.lightImpact();
                     setState(() {
                       _isDailyBriefing = set.first;
                     });
                     _generateBriefing();
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
 
                 if (!_isDailyBriefing) ...[
                   DropdownButtonFormField<int>(
-                    initialValue: _selectedContact?.id,
-                    decoration: const InputDecoration(
+                    value: _selectedContact?.id,
+                    decoration: InputDecoration(
                       labelText: 'Select Person for Dossier',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.person_outline_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                     ),
                     items: _allContacts
                         .map((c) => DropdownMenuItem(
@@ -270,46 +291,39 @@ class _BriefingScreenState extends State<BriefingScreen> {
                             ))
                         .toList(),
                     onChanged: (id) {
+                      AppHaptics.lightImpact();
                       setState(() {
-                        _selectedContact =
-                            _allContacts.firstWhere((c) => c.id == id);
+                        _selectedContact = _allContacts.firstWhere((c) => c.id == id);
                       });
                       _generateBriefing();
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                 ],
 
                 // Briefing Card
-                Card(
-                  elevation: 0,
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: theme.colorScheme.outlineVariant,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: SelectableText(
-                      _briefingContent,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                        height: 1.5,
-                      ),
+                AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: SelectableText(
+                    _briefingContent,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      height: 1.55,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 20),
-                FilledButton.tonalIcon(
+                const SizedBox(height: AppSpacing.lg),
+                AppButton(
+                  label: 'Copy Executive Memo',
+                  icon: Icons.copy_rounded,
+                  variant: AppButtonVariant.tonal,
+                  fullWidth: true,
+                  size: AppButtonSize.lg,
                   onPressed: _copyBriefing,
-                  icon: const Icon(Icons.copy),
-                  label: const Text('Copy Executive Memo'),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: AppSpacing.xl),
               ],
             ),
     );

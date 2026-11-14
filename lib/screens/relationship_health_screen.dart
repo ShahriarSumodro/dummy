@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/action_draft_service.dart';
 import '../models/commitment.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'contact_detail_screen.dart';
 import 'action_draft_detail_screen.dart';
 
@@ -37,6 +40,7 @@ class _RelationshipHealthScreenState extends State<RelationshipHealthScreen> {
   }
 
   Future<void> _generateDraftForContact(int contactId, String contactName) async {
+    AppHaptics.lightImpact();
     final commitments = await _db.getCommitmentsForContact(contactId);
     final contact = await _db.getContact(contactId);
     final targetCommitment = commitments.where((c) => c.isOverdue || c.status == CommitmentStatus.pending).firstOrNull ??
@@ -49,7 +53,11 @@ class _RelationshipHealthScreenState extends State<RelationshipHealthScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Preparing AI follow-up for $contactName...')),
+        SnackBar(
+          content: Text('Preparing AI follow-up draft for $contactName...'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        ),
       );
     }
 
@@ -71,100 +79,87 @@ class _RelationshipHealthScreenState extends State<RelationshipHealthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     final overdueList = _healthData.where((item) {
-      final overdueCount =
-          (item['overdue_commitments'] as num?)?.toInt() ?? 0;
+      final overdueCount = (item['overdue_commitments'] as num?)?.toInt() ?? 0;
       final cadenceDays = (item['cadence_days'] as num?)?.toInt() ?? 30;
       final lastCommitment = item['last_commitment_date'] as String?;
       final isCadenceOverdue = lastCommitment != null &&
           DateTime.tryParse(lastCommitment) != null &&
-          DateTime.now()
-                  .difference(DateTime.tryParse(lastCommitment)!)
-                  .inDays >=
-              cadenceDays;
+          DateTime.now().difference(DateTime.tryParse(lastCommitment)!).inDays >= cadenceDays;
       return overdueCount > 0 || isCadenceOverdue;
     }).toList();
 
-    final healthyList =
-        _healthData.where((item) => !overdueList.contains(item)).toList();
+    final healthyList = _healthData.where((item) => !overdueList.contains(item)).toList();
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Relationship Health Radar'),
+        titleSpacing: 0,
+        title: const Text('Relationship Health Radar', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _healthData.isEmpty
-              ? const Center(child: Text('No contacts to evaluate.'))
+              ? const Center(
+                  child: AppEmptyState(
+                    icon: Icons.radar_rounded,
+                    title: 'No contacts monitored',
+                    message: 'Add contacts and touchpoint cadences to start monitoring relationship health.',
+                  ),
+                )
               : ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
                   children: [
-                    // Overview header banner
+                    // Overview Header Banner
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.radar, color: theme.colorScheme.primary),
-                          const SizedBox(width: 12),
+                          const Icon(Icons.radar_rounded, color: AppColors.primary, size: 22),
+                          const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
                               'RemembrAI monitors your interactions and alerts you when client relationships risk going cold.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.foreground(context),
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.lg),
 
                     if (overdueList.isNotEmpty) ...[
-                      Text(
-                        'Needs Immediate Attention (${overdueList.length})',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.colorScheme.error,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      AppSectionHeader(
+                        title: 'Needs Immediate Attention',
+                        count: overdueList.length,
                       ),
-                      const SizedBox(height: 8),
-                      ...overdueList.map((item) => _buildContactHealthTile(
-                            item,
-                            theme,
-                            isCritical: true,
-                          )),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.xs),
+                      ...overdueList.map((item) => _buildContactHealthCard(item, isCritical: true)),
+                      const SizedBox(height: AppSpacing.lg),
                     ],
 
-                    Text(
-                      'All Monitored Contacts (${healthyList.length})',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    AppSectionHeader(
+                      title: 'Healthy Cadences',
+                      count: healthyList.length,
                     ),
-                    const SizedBox(height: 8),
-                    ...healthyList.map((item) => _buildContactHealthTile(
-                          item,
-                          theme,
-                          isCritical: false,
-                        )),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: AppSpacing.xs),
+                    ...healthyList.map((item) => _buildContactHealthCard(item, isCritical: false)),
+                    const SizedBox(height: AppSpacing.xl),
                   ],
                 ),
     );
   }
 
-  Widget _buildContactHealthTile(
-    Map<String, dynamic> item,
-    ThemeData theme, {
-    required bool isCritical,
-  }) {
+  Widget _buildContactHealthCard(Map<String, dynamic> item, {required bool isCritical}) {
     final name = item['name'] as String? ?? 'Contact';
     final company = item['company'] as String?;
     final overdueCount = (item['overdue_commitments'] as num?)?.toInt() ?? 0;
@@ -183,91 +178,38 @@ class _RelationshipHealthScreenState extends State<RelationshipHealthScreen> {
     }
     final isStale = daysRemaining != null && daysRemaining <= 0;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: (isCritical || isStale)
-              ? theme.colorScheme.errorContainer
-              : theme.colorScheme.primaryContainer,
-          child: Icon(
-            (isCritical || isStale)
-                ? Icons.warning_amber
-                : Icons.person_outline,
-            color: (isCritical || isStale)
-                ? theme.colorScheme.error
-                : theme.colorScheme.primary,
-          ),
-        ),
-        title: Text(
-          name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (company != null) Text(company),
-            const SizedBox(height: 2),
-            Text(
-              overdueCount > 0
-                  ? '$overdueCount overdue promise(s)!'
-                  : (pendingCount > 0
-                      ? '$pendingCount active commitment(s)'
-                      : (lastCommitment != null
-                          ? 'Last active: ${lastCommitment.substring(0, 10)}'
-                          : 'No recorded commitments yet')),
-              style: TextStyle(
-                fontSize: 12,
-                color: overdueCount > 0 ? theme.colorScheme.error : null,
-                fontWeight: overdueCount > 0 ? FontWeight.bold : null,
-              ),
-            ),
-            const SizedBox(height: 4),
-            // Cadence Countdown Tag
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isStale
-                    ? Colors.red.withValues(alpha: 0.12)
-                    : (daysRemaining != null && daysRemaining <= 3)
-                        ? Colors.orange.withValues(alpha: 0.15)
-                        : Colors.green.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                daysRemaining == null
-                    ? 'Target Cadence: ${cadenceDays}d'
-                    : isStale
-                        ? 'Cold: Overdue by ${daysRemaining.abs()}d (Cadence ${cadenceDays}d)'
-                        : (daysRemaining <= 3
-                            ? 'Touchpoint due in ${daysRemaining}d'
-                            : '$daysRemaining days until touchpoint (${cadenceDays}d cadence)'),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isStale
-                      ? Colors.red.shade900
-                      : (daysRemaining != null && daysRemaining <= 3)
-                          ? Colors.orange.shade900
-                          : Colors.green.shade900,
-                ),
-              ),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: AppListRow(
+        leading: AppAvatar(name: name, size: AppAvatarSize.md),
+        title: name,
+        subtitle: [
+          if (company != null) company,
+          overdueCount > 0
+              ? '$overdueCount overdue promise(s)!'
+              : (pendingCount > 0
+                  ? '$pendingCount active promise(s)'
+                  : (lastCommitment != null ? 'Active: ${lastCommitment.substring(0, 10)}' : 'No promises yet')),
+        ].join(' · '),
+        badge: isStale
+            ? AppBadge(label: 'Cold (-${daysRemaining!.abs()}d)', variant: AppBadgeVariant.error)
+            : (daysRemaining != null && daysRemaining <= 3
+                ? AppBadge(label: 'Due in ${daysRemaining}d', variant: AppBadgeVariant.warning)
+                : const AppBadge(label: 'Healthy', variant: AppBadgeVariant.success)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isCritical || overdueCount > 0 || isStale)
               IconButton(
-                icon: const Icon(Icons.drafts_outlined, size: 20),
-                tooltip: 'Draft Follow-up Message',
+                icon: const Icon(Icons.drafts_outlined, size: 18, color: AppColors.primary),
+                tooltip: 'Draft Follow-up',
                 onPressed: () => _generateDraftForContact(item['id'] as int, name),
               ),
-            const Icon(Icons.chevron_right),
+            const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
           ],
         ),
         onTap: () {
+          AppHaptics.lightImpact();
           Navigator.push(
             context,
             MaterialPageRoute(
