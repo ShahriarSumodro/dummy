@@ -4,6 +4,9 @@ import '../models/ai_extraction_result.dart';
 import '../models/commitment.dart';
 import '../models/reminder.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Review & Confirm Screen.
 /// Follows the Master Rule: Never silently turn AI inferences into permanent facts.
@@ -30,6 +33,7 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
   }
 
   Future<void> _saveAll() async {
+    AppHaptics.mediumImpact();
     setState(() => _isSaving = true);
 
     try {
@@ -73,28 +77,33 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
           remindAt: er.remindAt,
           isRecurring: er.isRecurring,
           recurringRule: er.recurringRule,
-          commitmentId:
-              savedCommitmentIds.isNotEmpty ? savedCommitmentIds.first : null,
+          commitmentId: savedCommitmentIds.isNotEmpty ? savedCommitmentIds.first : null,
           status: ReminderStatus.pending,
         );
         await _db.insertReminder(reminder);
       }
 
       if (mounted) {
+        AppHaptics.success();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Memories and commitments confirmed & saved!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Memories and commitments confirmed & saved!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
         );
         Navigator.pop(context, true); // true = saved
       }
     } catch (e) {
       if (mounted) {
+        AppHaptics.warning();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
         );
       }
@@ -105,265 +114,263 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final dateFormat = DateFormat('EEE, MMM d · h:mm a');
 
-    final selectedCommitmentsCount =
-        _result.commitments.where((c) => c.isSelected).length;
-    final selectedContactsCount =
-        _result.contacts.where((c) => c.isSelected).length;
+    final selectedCommitmentsCount = _result.commitments.where((c) => c.isSelected).length;
+    final selectedContactsCount = _result.contacts.where((c) => c.isSelected).length;
+    final selectedRemindersCount = _result.reminders.where((r) => r.isSelected).length;
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Review Extracted Memory'),
+        titleSpacing: 0,
+        title: const Text('Review Extracted Memory', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _isSaving
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Saving to your personal memory database...'),
+                  const CircularProgressIndicator(color: AppColors.primary),
+                  const SizedBox(height: AppSpacing.md),
+                  Text('Saving to your personal memory database...', style: TextStyle(color: AppColors.muted(context))),
                 ],
               ),
             )
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
               children: [
-                // Info banner explaining confirmation principle
+                // Info Banner explaining confirmation gate
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.shield_outlined,
-                          color: theme.colorScheme.primary),
-                      const SizedBox(width: 12),
+                      const Icon(Icons.shield_outlined, color: AppColors.primary, size: 20),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
-                          'Review and edit AI-detected items below. Only checked items will be committed to your memory.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer,
+                          'Confirmation Gate: Review and edit AI-detected items below. Only checked items will be committed to permanent memory.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.foreground(context),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.lg),
 
                 // ── Commitments Section ──
                 if (_result.commitments.isNotEmpty) ...[
-                  Text(
-                    'Commitments & Responsibilities',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  AppSectionHeader(
+                    title: 'Commitments & Promises',
+                    count: _result.commitments.length,
                   ),
-                  const SizedBox(height: 8),
-                  ..._result.commitments.map((c) => Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: c.isSelected,
-                                    onChanged: (val) {
-                                      setState(() => c.isSelected = val ?? false);
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: Chip(
-                                      label: Text(
-                                        c.type.label,
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: c.confidence >= 0.85
-                                          ? Colors.green.withValues(alpha: 0.15)
-                                          : (c.confidence >= 0.65
-                                              ? Colors.amber.withValues(alpha: 0.15)
-                                              : Colors.orange.withValues(alpha: 0.15)),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: c.confidence >= 0.85
-                                            ? Colors.green
-                                            : (c.confidence >= 0.65 ? Colors.amber : Colors.orange),
-                                        width: 0.8,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      c.confidenceLabel,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: c.confidence >= 0.85
-                                            ? Colors.green.shade800
-                                            : (c.confidence >= 0.65
-                                                ? Colors.amber.shade900
-                                                : Colors.orange.shade900),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              TextFormField(
-                                initialValue: c.title,
-                                decoration: const InputDecoration(
-                                  labelText: 'Commitment Title',
-                                  isDense: true,
+                  const SizedBox(height: AppSpacing.xs),
+                  ..._result.commitments.map((c) => AppCard(
+                        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: c.isSelected,
+                                  activeColor: AppColors.primary,
+                                  onChanged: (val) {
+                                    AppHaptics.lightImpact();
+                                    setState(() => c.isSelected = val ?? false);
+                                  },
                                 ),
-                                onChanged: (val) => c.title = val,
+                                AppBadge(
+                                  label: c.type.label,
+                                  variant: AppBadgeVariant.neutral,
+                                ),
+                                const Spacer(),
+                                AppBadge(
+                                  label: c.confidenceLabel,
+                                  variant: c.confidence >= 0.85
+                                      ? AppBadgeVariant.success
+                                      : (c.confidence >= 0.65
+                                          ? AppBadgeVariant.warning
+                                          : AppBadgeVariant.error),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextFormField(
+                              initialValue: c.title,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                              decoration: const InputDecoration(
+                                labelText: 'Commitment Title',
+                                isDense: true,
+                                border: OutlineInputBorder(),
                               ),
-                              const SizedBox(height: 8),
-                              if (c.sourceExcerpt != null && c.sourceExcerpt!.isNotEmpty)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(Icons.format_quote, size: 14, color: theme.colorScheme.outline),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          'Source: "${c.sourceExcerpt}"',
-                                          style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic, fontSize: 11),
+                              onChanged: (val) => c.title = val,
+                            ),
+                            if (c.sourceExcerpt != null && c.sourceExcerpt!.isNotEmpty) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: AppColors.subtle(context),
+                                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.format_quote_rounded, size: 14, color: AppColors.muted(context)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        'Source: "${c.sourceExcerpt}"',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontStyle: FontStyle.italic,
+                                          color: AppColors.muted(context),
                                         ),
                                       ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (c.dueDate != null) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              InkWell(
+                                onTap: () async {
+                                  AppHaptics.lightImpact();
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: c.dueDate!,
+                                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (picked != null && mounted) {
+                                    setState(() {
+                                      c.dueDate = DateTime(
+                                        picked.year,
+                                        picked.month,
+                                        picked.day,
+                                        c.dueDate!.hour,
+                                        c.dueDate!.minute,
+                                      );
+                                    });
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(AppRadius.sm),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.event_rounded, size: 16, color: AppColors.primary),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Due: ${dateFormat.format(c.dueDate!)}',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                      const Spacer(),
+                                      const Icon(Icons.edit_calendar_rounded, size: 14, color: Colors.grey),
                                     ],
                                   ),
                                 ),
-                              if (c.dueDate != null)
-                                ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.event, size: 20),
-                                  title: Text('Due: ${dateFormat.format(c.dueDate!)}'),
-                                  trailing: const Icon(Icons.edit, size: 16),
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: c.dueDate!,
-                                      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                                    );
-                                    if (picked != null && mounted) {
-                                      setState(() {
-                                        c.dueDate = DateTime(
-                                          picked.year,
-                                          picked.month,
-                                          picked.day,
-                                          c.dueDate!.hour,
-                                          c.dueDate!.minute,
-                                        );
-                                      });
-                                    }
-                                  },
-                                ),
-                              if (c.contactName != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Linked to: ${c.contactName}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.secondary,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ],
-                          ),
+                            if (c.contactName != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Linked to: ${c.contactName}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       )),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                 ],
 
                 // ── Contacts Section ──
                 if (_result.contacts.isNotEmpty) ...[
-                  Text(
-                    'People Mentioned',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  AppSectionHeader(
+                    title: 'People Mentioned',
+                    count: _result.contacts.length,
                   ),
-                  const SizedBox(height: 8),
-                  ..._result.contacts.map((contact) => Card(
-                        margin: const EdgeInsets.only(bottom: 8),
+                  const SizedBox(height: AppSpacing.xs),
+                  ..._result.contacts.map((contact) => AppCard(
+                        margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                         child: CheckboxListTile(
                           value: contact.isSelected,
+                          activeColor: AppColors.primary,
+                          contentPadding: EdgeInsets.zero,
                           onChanged: (val) {
+                            AppHaptics.lightImpact();
                             setState(() => contact.isSelected = val ?? false);
                           },
-                          title: Text(contact.name),
+                          title: Text(contact.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                           subtitle: Text(
                             contact.matchedExistingContactId != null
-                                ? 'Matches existing contact in your database'
+                                ? 'Matches existing contact in directory'
                                 : (contact.company != null
                                     ? 'New contact at ${contact.company}'
-                                    : 'New contact'),
+                                    : 'New contact record'),
+                            style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
                           ),
-                          secondary: CircleAvatar(
-                            child: Text(contact.name.isNotEmpty ? contact.name[0] : '?'),
-                          ),
+                          secondary: AppAvatar(name: contact.name, size: AppAvatarSize.sm),
                         ),
                       )),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                 ],
 
                 // ── Reminders Section ──
                 if (_result.reminders.isNotEmpty) ...[
-                  Text(
-                    'Suggested Reminders',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  AppSectionHeader(
+                    title: 'Suggested Reminders',
+                    count: _result.reminders.length,
                   ),
-                  const SizedBox(height: 8),
-                  ..._result.reminders.map((r) => Card(
-                        margin: const EdgeInsets.only(bottom: 8),
+                  const SizedBox(height: AppSpacing.xs),
+                  ..._result.reminders.map((r) => AppCard(
+                        margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                         child: CheckboxListTile(
                           value: r.isSelected,
+                          activeColor: AppColors.primary,
+                          contentPadding: EdgeInsets.zero,
                           onChanged: (val) {
+                            AppHaptics.lightImpact();
                             setState(() => r.isSelected = val ?? false);
                           },
-                          title: Text(r.title),
-                          subtitle: Text('Remind at: ${dateFormat.format(r.remindAt)}'),
-                          secondary: const Icon(Icons.alarm),
+                          title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          subtitle: Text(
+                            'Remind at: ${dateFormat.format(r.remindAt)}',
+                            style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+                          ),
+                          secondary: const Icon(Icons.alarm_rounded, color: AppColors.primary),
                         ),
                       )),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
                 ],
 
-                // Save Button
-                FilledButton.icon(
+                // Confirm and Save Button
+                AppButton(
+                  label: 'Confirm & Save ($selectedCommitmentsCount commitments, $selectedContactsCount contacts, $selectedRemindersCount reminders)',
+                  icon: Icons.check_circle_rounded,
+                  fullWidth: true,
+                  size: AppButtonSize.lg,
                   onPressed: _saveAll,
-                  icon: const Icon(Icons.check),
-                  label: Text(
-                    'Confirm & Save ($selectedCommitmentsCount commitments, $selectedContactsCount contacts)',
-                  ),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                  ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xl),
               ],
             ),
     );

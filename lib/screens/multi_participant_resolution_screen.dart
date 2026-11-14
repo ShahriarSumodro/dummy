@@ -3,6 +3,9 @@ import '../models/ai_extraction_result.dart';
 import '../models/contact.dart';
 import '../services/database_service.dart';
 import '../services/voice_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Screen that prompts the executive user to identify and disambiguate
 /// multiple conversation participants detected in a 3-4 person discussion.
@@ -121,6 +124,7 @@ class _MultiParticipantResolutionScreenState
   }
 
   void _applyResolutions() {
+    AppHaptics.success();
     for (final item in _editList) {
       final enteredName = item.nameController.text.trim();
       final finalName = enteredName.isNotEmpty
@@ -160,52 +164,55 @@ class _MultiParticipantResolutionScreenState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Identify Discussion Participants'),
+        titleSpacing: 0,
+        title: const Text('Disentangle Participants', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
               children: [
                 // Executive Assistant Context Banner
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        radius: 18,
-                        child: const Icon(Icons.people_outline, size: 20),
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                        ),
+                        child: const Icon(Icons.groups_rounded, color: Colors.white, size: 20),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Multi-Party Conversation Disentangled',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             Text(
-                              'RemembrAI detected ${_editList.length} distinct people in this discussion. Tell me their names and roles, and I will personalize all your commitments.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                              'RemembrAI detected ${_editList.length} distinct people in this discussion. Tell me who they are and what they do to personalize your commitments.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.muted(context),
                               ),
                             ),
                           ],
@@ -214,7 +221,7 @@ class _MultiParticipantResolutionScreenState
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.lg),
 
                 // Participant Cards
                 ..._editList.asMap().entries.map((entry) {
@@ -223,180 +230,150 @@ class _MultiParticipantResolutionScreenState
                   final tag = item.originalContact.placeholderTag ??
                       'Person ${String.fromCharCode(65 + idx)}';
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Chip(
-                                label: Text(
-                                  tag,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                backgroundColor: theme.colorScheme.secondaryContainer,
-                              ),
-                              const Spacer(),
-                              Text(
-                                'Participant #${idx + 1}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          if (item.originalContact.detectedContext != null &&
-                              item.originalContact.detectedContext!.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.4),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.chat_bubble_outline,
-                                    size: 15,
-                                    color: theme.colorScheme.outline,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Context in meeting: "${item.originalContact.detectedContext}"',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        fontStyle: FontStyle.italic,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                  return AppCard(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            AppBadge(
+                              label: tag,
+                              variant: AppBadgeVariant.neutral,
+                            ),
+                            const Spacer(),
+                            Text(
+                              'Participant #${idx + 1}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted(context),
                               ),
                             ),
                           ],
-                          const SizedBox(height: 16),
+                        ),
 
-                          // Name input with known contact suggestions
-                          Autocomplete<String>(
-                            optionsBuilder: (textEditingValue) {
-                              if (textEditingValue.text.isEmpty) {
-                                return const Iterable<String>.empty();
-                              }
-                              return _knownContacts
-                                  .where((c) => c.name.toLowerCase().contains(
-                                        textEditingValue.text.toLowerCase(),
-                                      ))
-                                  .map((c) => c.name);
-                            },
-                            onSelected: (selection) {
-                              item.nameController.text = selection;
-                              final match = _knownContacts.firstWhere(
-                                (c) => c.name == selection,
-                              );
-                              if (match.role != null) {
-                                item.roleController.text = match.role!;
-                              }
-                              if (match.company != null) {
-                                item.companyController.text = match.company!;
-                              }
-                              setState(() {});
-                            },
-                            fieldViewBuilder: (
-                              context,
-                              controller,
-                              focusNode,
-                              onFieldSubmitted,
-                            ) {
-                              // Sync controllers
-                              if (controller.text.isEmpty &&
-                                  item.nameController.text.isNotEmpty) {
-                                controller.text = item.nameController.text;
-                              }
-                              controller.addListener(() {
-                                item.nameController.text = controller.text;
-                              });
-
-                              return TextField(
-                                controller: controller,
-                                focusNode: focusNode,
-                                decoration: InputDecoration(
-                                  labelText: 'Who was $tag? (Name)',
-                                  hintText: 'e.g. Raju, Tanvir, Sarah...',
-                                  prefixIcon: const Icon(Icons.person_outline),
-                                  border: const OutlineInputBorder(),
+                        if (item.originalContact.detectedContext != null &&
+                            item.originalContact.detectedContext!.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.subtle(context),
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.chat_bubble_outline_rounded, size: 14, color: AppColors.muted(context)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Context in meeting: "${item.originalContact.detectedContext}"',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      color: AppColors.muted(context),
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Role / What he does
-                          TextField(
-                            controller: item.roleController,
-                            decoration: InputDecoration(
-                              labelText: 'What does this person do? (Role)',
-                              hintText: 'e.g. Lead Designer, Legal Advisor, Investor',
-                              prefixIcon: const Icon(Icons.badge_outlined),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Relationship to you
-                          TextField(
-                            controller: item.relationshipController,
-                            decoration: const InputDecoration(
-                              labelText: 'Who is this person to you? (Relationship)',
-                              hintText: 'e.g. Client, Colleague, Vendor, Founder',
-                              prefixIcon: Icon(Icons.handshake_outlined),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Company
-                          TextField(
-                            controller: item.companyController,
-                            decoration: const InputDecoration(
-                              labelText: 'Company / Organization (optional)',
-                              hintText: 'e.g. Apex Corp, TechVentures',
-                              prefixIcon: Icon(Icons.business_outlined),
-                              border: OutlineInputBorder(),
+                              ],
                             ),
                           ),
                         ],
-                      ),
+                        const SizedBox(height: AppSpacing.md),
+
+                        // Name input with known contact suggestions
+                        Autocomplete<String>(
+                          optionsBuilder: (textEditingValue) {
+                            if (textEditingValue.text.isEmpty) {
+                              return const Iterable<String>.empty();
+                            }
+                            return _knownContacts
+                                .where((c) => c.name.toLowerCase().contains(
+                                      textEditingValue.text.toLowerCase(),
+                                    ))
+                                .map((c) => c.name);
+                          },
+                          onSelected: (selection) {
+                            AppHaptics.lightImpact();
+                            item.nameController.text = selection;
+                            final match = _knownContacts.firstWhere(
+                              (c) => c.name == selection,
+                            );
+                            if (match.role != null) {
+                              item.roleController.text = match.role!;
+                            }
+                            if (match.company != null) {
+                              item.companyController.text = match.company!;
+                            }
+                            setState(() {});
+                          },
+                          fieldViewBuilder: (
+                            context,
+                            controller,
+                            focusNode,
+                            onFieldSubmitted,
+                          ) {
+                            // Sync controllers
+                            if (controller.text.isEmpty &&
+                                item.nameController.text.isNotEmpty) {
+                              controller.text = item.nameController.text;
+                            }
+                            controller.addListener(() {
+                              item.nameController.text = controller.text;
+                            });
+
+                            return AppTextField(
+                              controller: controller,
+                              label: 'Who was $tag? (Real Name) *',
+                              hintText: 'e.g. Raju, Tanvir, Sarah...',
+                              prefixIcon: Icons.person_outline_rounded,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+
+                        // Role / What he does
+                        AppTextField(
+                          controller: item.roleController,
+                          label: 'Role / What they do',
+                          hintText: 'e.g. Lead Designer, Legal Advisor, Investor',
+                          prefixIcon: Icons.badge_outlined,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+
+                        // Relationship to you
+                        AppTextField(
+                          controller: item.relationshipController,
+                          label: 'Relationship to you',
+                          hintText: 'e.g. Client, Colleague, Vendor, Founder',
+                          prefixIcon: Icons.handshake_outlined,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+
+                        // Company
+                        AppTextField(
+                          controller: item.companyController,
+                          label: 'Company / Organization (optional)',
+                          hintText: 'e.g. Apex Corp, TechVentures',
+                          prefixIcon: Icons.business_outlined,
+                        ),
+                      ],
                     ),
                   );
                 }),
 
-                const SizedBox(height: 12),
-                FilledButton.icon(
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: 'Confirm & Link to My Commitments',
+                  icon: Icons.check_circle_rounded,
+                  fullWidth: true,
+                  size: AppButtonSize.lg,
                   onPressed: _applyResolutions,
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Confirm & Link to My Commitments'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                  ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xl),
               ],
             ),
     );

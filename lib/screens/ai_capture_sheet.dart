@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/ai_service.dart';
 import '../models/ai_extraction_result.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'ai_review_screen.dart';
 import 'voice_capture_screen.dart';
 import 'multi_participant_resolution_screen.dart';
@@ -42,6 +45,7 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
       return;
     }
 
+    AppHaptics.mediumImpact();
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
@@ -66,12 +70,12 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Cloud AI unavailable. Processed via local offline memory rules.',
-              ),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
+            SnackBar(
+              content: const Text('Cloud AI offline. Processed via local offline memory rules.'),
+              backgroundColor: AppColors.warning,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              duration: const Duration(seconds: 4),
             ),
           );
         }
@@ -126,14 +130,16 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        top: AppSpacing.lg,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -141,19 +147,30 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primary, size: 18),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Text(
                 'AI Memory Capture',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
                 ),
               ),
               const Spacer(),
               IconButton(
-                icon: const Icon(Icons.mic),
+                icon: const Icon(Icons.mic_rounded, color: AppColors.primary),
                 tooltip: 'Speak with Voice AI',
                 onPressed: () async {
+                  AppHaptics.lightImpact();
                   final saved = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(builder: (_) => const VoiceCaptureScreen()),
@@ -164,56 +181,64 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close_rounded),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Type a conversation note, promise, or meeting follow-up. The assistant will extract who, what, and when.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.muted(context),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
 
-          TextField(
+          AppTextField(
             controller: _textController,
+            hintText: 'e.g. Met with Rahim today. Promised to email the revised quotation by tomorrow 3 PM...',
             maxLines: 4,
             autofocus: true,
-            decoration: InputDecoration(
-              hintText:
-                  'e.g. Met with Rahim today. Promised to email the revised quotation by tomorrow 3 PM...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
 
           // Quick Prompt Chips
           Text(
-            'Example prompts to try:',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.outline,
+            'EXAMPLE PROMPTS',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.muted(context),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: _quickPrompts.map((p) {
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(
-                      p.length > 35 ? '${p.substring(0, 32)}...' : p,
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    onPressed: () {
+                  padding: const EdgeInsets.only(right: AppSpacing.xs),
+                  child: InkWell(
+                    onTap: () {
+                      AppHaptics.lightImpact();
                       _textController.text = p;
                     },
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.subtle(context),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        border: Border.all(color: AppColors.border(context), width: 0.5),
+                      ),
+                      child: Text(
+                        p.length > 35 ? '${p.substring(0, 32)}...' : p,
+                        style: TextStyle(fontSize: 11, color: AppColors.foreground(context)),
+                      ),
+                    ),
                   ),
                 );
               }).toList(),
@@ -221,38 +246,33 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
           ),
 
           if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
               ),
               child: Text(
                 _errorMessage!,
-                style: TextStyle(
-                  color: theme.colorScheme.onErrorContainer,
+                style: const TextStyle(
+                  color: AppColors.error,
                   fontSize: 12,
                 ),
               ),
             ),
           ],
 
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
 
-          FilledButton.icon(
+          AppButton(
+            label: _isProcessing ? 'Analyzing Context...' : 'Extract Memory',
+            icon: Icons.auto_awesome_rounded,
+            fullWidth: true,
+            size: AppButtonSize.lg,
+            loading: _isProcessing,
             onPressed: _isProcessing ? null : _processMemory,
-            icon: _isProcessing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.auto_awesome),
-            label: Text(_isProcessing ? 'Analyzing Context...' : 'Extract Memory'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-            ),
           ),
         ],
       ),

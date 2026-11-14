@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/action_draft.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Screen to view, edit, approve, copy, or mark an action draft as completed.
 class ActionDraftDetailScreen extends StatefulWidget {
@@ -24,8 +27,7 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _subjectController =
-        TextEditingController(text: widget.draft.subject ?? '');
+    _subjectController = TextEditingController(text: widget.draft.subject ?? '');
     _bodyController = TextEditingController(text: widget.draft.body);
     _status = widget.draft.status;
   }
@@ -38,6 +40,7 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
   }
 
   Future<void> _updateDraft() async {
+    AppHaptics.success();
     final updated = widget.draft.copyWith(
       subject: _subjectController.text.trim(),
       body: _bodyController.text.trim(),
@@ -46,7 +49,11 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
     await _db.updateActionDraft(updated);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Draft updated.')),
+        SnackBar(
+          content: const Text('Draft updated.'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        ),
       );
       Navigator.pop(context, true);
     }
@@ -82,7 +89,9 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Opened $channelName & marked draft as sent!'),
-              backgroundColor: Colors.green.shade800,
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
             ),
           );
         }
@@ -97,6 +106,8 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
             content: Text(
               'Could not open $channelName automatically. Text copied to clipboard!',
             ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
         );
       }
@@ -111,6 +122,7 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
   }
 
   Future<void> _launchWhatsApp() async {
+    AppHaptics.lightImpact();
     final phone = _cleanPhoneNumber(widget.draft.recipientContact);
     final text = _bodyController.text;
     final encodedText = Uri.encodeComponent(text);
@@ -121,6 +133,7 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
   }
 
   Future<void> _launchEmail() async {
+    AppHaptics.lightImpact();
     final contact = widget.draft.recipientContact;
     final email = (contact != null && contact.contains('@')) ? contact : '';
     final subject = _subjectController.text.trim();
@@ -140,6 +153,7 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
   }
 
   Future<void> _launchSms() async {
+    AppHaptics.lightImpact();
     final phone = _cleanPhoneNumber(widget.draft.recipientContact);
     final body = _bodyController.text;
     final encodedBody = Uri.encodeComponent(body);
@@ -150,168 +164,195 @@ class _ActionDraftDetailScreenState extends State<ActionDraftDetailScreen> {
   }
 
   void _copyToClipboard() {
+    AppHaptics.lightImpact();
     final text = _subjectController.text.isNotEmpty
         ? 'Subject: ${_subjectController.text}\n\n${_bodyController.text}'
         : _bodyController.text;
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Draft copied to clipboard!')),
+      SnackBar(
+        content: const Text('Draft copied to clipboard!'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: Text(widget.draft.type.label),
+        titleSpacing: 0,
+        title: Text(widget.draft.type.label, style: const TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.copy),
+            icon: const Icon(Icons.copy_rounded),
             tooltip: 'Copy text',
             onPressed: _copyToClipboard,
           ),
           IconButton(
-            icon: const Icon(Icons.save),
+            icon: const Icon(Icons.save_outlined),
             tooltip: 'Save changes',
             onPressed: _updateDraft,
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
         children: [
-          // Permission level info chip
+          // Permission level info banner
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.verified_user_outlined, size: 20),
-                const SizedBox(width: 8),
+                const Icon(Icons.verified_user_outlined, size: 20, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Permission Gate: Generated as draft. Review and edit before sending.',
-                    style: theme.textTheme.bodySmall,
+                    'Permission Gate: Draft generated for your review. Edits remain private until explicitly dispatched.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.foreground(context),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
 
           if (widget.draft.recipientName != null) ...[
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person_outline),
-              title: Text('Recipient: ${widget.draft.recipientName}'),
-              subtitle: widget.draft.recipientContact != null
-                  ? Text(widget.draft.recipientContact!)
-                  : null,
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  AppAvatar(name: widget.draft.recipientName!, size: AppAvatarSize.sm),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recipient: ${widget.draft.recipientName}',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                        if (widget.draft.recipientContact != null)
+                          Text(
+                            widget.draft.recipientContact!,
+                            style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+                          ),
+                      ],
+                    ),
+                  ),
+                  AppBadge(
+                    label: _status.label,
+                    variant: _status == DraftStatus.sent
+                        ? AppBadgeVariant.success
+                        : (_status == DraftStatus.approved
+                            ? AppBadgeVariant.neutral
+                            : AppBadgeVariant.warning),
+                  ),
+                ],
+              ),
             ),
-            const Divider(height: 24),
+            const SizedBox(height: AppSpacing.md),
           ],
 
           if (widget.draft.type == DraftType.email) ...[
-            TextField(
+            AppTextField(
               controller: _subjectController,
-              decoration: const InputDecoration(
-                labelText: 'Subject',
-                border: OutlineInputBorder(),
-              ),
+              label: 'Email Subject',
+              prefixIcon: Icons.subject_rounded,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
           ],
 
-          TextField(
+          AppTextField(
             controller: _bodyController,
-            maxLines: 10,
-            decoration: const InputDecoration(
-              labelText: 'Message Body',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
+            label: 'Message Body',
+            maxLines: 9,
+            prefixIcon: Icons.edit_note_rounded,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
 
           // Direct Communication Channels
           Text(
-            'Direct Channel Launchers',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurfaceVariant,
+            'DIRECT CHANNEL DISPATCH',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.muted(context),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             children: [
               Expanded(
-                child: FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green.withValues(alpha: 0.15),
-                    foregroundColor: Colors.green.shade800,
-                  ),
+                child: AppButton(
+                  label: 'WhatsApp',
+                  icon: Icons.chat_bubble_outline_rounded,
+                  variant: AppButtonVariant.tonal,
+                  size: AppButtonSize.sm,
                   onPressed: _launchWhatsApp,
-                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                  label: const Text('WhatsApp'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
-                child: FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.blue.withValues(alpha: 0.15),
-                    foregroundColor: Colors.blue.shade800,
-                  ),
+                child: AppButton(
+                  label: 'Email',
+                  icon: Icons.email_outlined,
+                  variant: AppButtonVariant.tonal,
+                  size: AppButtonSize.sm,
                   onPressed: _launchEmail,
-                  icon: const Icon(Icons.email_outlined, size: 18),
-                  label: const Text('Email'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
-                child: FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.deepPurple.withValues(alpha: 0.15),
-                    foregroundColor: Colors.deepPurple.shade800,
-                  ),
+                child: AppButton(
+                  label: 'SMS',
+                  icon: Icons.sms_outlined,
+                  variant: AppButtonVariant.tonal,
+                  size: AppButtonSize.sm,
                   onPressed: _launchSms,
-                  icon: const Icon(Icons.sms_outlined, size: 18),
-                  label: const Text('SMS'),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
 
           // Status & Approval Action Buttons
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
+                child: AppButton(
+                  label: 'Approve Draft',
+                  icon: Icons.check_rounded,
+                  variant: AppButtonVariant.secondary,
                   onPressed: () {
                     setState(() => _status = DraftStatus.approved);
                     _updateDraft();
                   },
-                  icon: const Icon(Icons.check),
-                  label: const Text('Approve Draft'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: FilledButton.icon(
+                child: AppButton(
+                  label: 'Copy & Mark Sent',
+                  icon: Icons.send_rounded,
                   onPressed: () {
                     _copyToClipboard();
                     setState(() => _status = DraftStatus.sent);
                     _updateDraft();
                   },
-                  icon: const Icon(Icons.send),
-                  label: const Text('Copy & Mark Sent'),
                 ),
               ),
             ],
