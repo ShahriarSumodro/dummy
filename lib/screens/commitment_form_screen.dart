@@ -3,8 +3,11 @@ import 'package:intl/intl.dart';
 import '../models/commitment.dart';
 import '../models/contact.dart';
 import '../services/database_service.dart';
+import '../theme/design_tokens.dart';
+import '../theme/app_haptics.dart';
+import '../widgets/widgets.dart';
 
-/// Form screen for creating or editing a commitment.
+/// Redesigned Commitment Creation & Edit Form.
 class CommitmentFormScreen extends StatefulWidget {
   final Commitment? commitment;
   final Contact? preselectedContact;
@@ -69,7 +72,6 @@ class _CommitmentFormScreenState extends State<CommitmentFormScreen> {
     if (mounted) {
       setState(() {
         _contacts = contacts;
-        // Set preselected contact.
         if (widget.preselectedContact != null) {
           _selectedContact = widget.preselectedContact;
         } else if (widget.commitment?.contactId != null) {
@@ -78,9 +80,9 @@ class _CommitmentFormScreenState extends State<CommitmentFormScreen> {
                 orElse: () => null,
               );
         }
-      _loadingContacts = false;
-    });
-  }
+        _loadingContacts = false;
+      });
+    }
   }
 
   @override
@@ -91,6 +93,7 @@ class _CommitmentFormScreenState extends State<CommitmentFormScreen> {
   }
 
   Future<void> _pickDueDate() async {
+    AppHaptics.lightImpact();
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
@@ -107,13 +110,11 @@ class _CommitmentFormScreenState extends State<CommitmentFormScreen> {
 
       setState(() {
         if (time != null) {
-          _dueDate = DateTime(
-              date.year, date.month, date.day, time.hour, time.minute);
-        } else {
           _dueDate =
-              DateTime(date.year, date.month, date.day, 23, 59);
+              DateTime(date.year, date.month, date.day, time.hour, time.minute);
+        } else {
+          _dueDate = DateTime(date.year, date.month, date.day, 17, 0);
         }
-        _loadingContacts = false;
       });
       _checkConflicts(_dueDate!);
     }
@@ -121,6 +122,7 @@ class _CommitmentFormScreenState extends State<CommitmentFormScreen> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    AppHaptics.success();
 
     final commitment = Commitment(
       id: widget.commitment?.id,
@@ -142,145 +144,269 @@ class _CommitmentFormScreenState extends State<CommitmentFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final dateFormat = DateFormat('EEE, MMM d, yyyy · h:mm a');
+
+    final primaryText =
+        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final secondaryText =
+        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Commitment' : 'New Commitment'),
         actions: [
-          TextButton(onPressed: _save, child: const Text('Save')),
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: AppButton(
+              label: 'Save',
+              onPressed: _save,
+              size: AppButtonSize.medium,
+            ),
+          ),
         ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.screenSide),
           children: [
-            // Type selector
-            Text('Type',
-                style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 8),
-            SegmentedButton<CommitmentType>(
-              segments: CommitmentType.values
-                  .map((t) => ButtonSegment(
-                        value: t,
-                        label: Text(t.label, style: const TextStyle(fontSize: 11)),
-                      ))
-                  .toList(),
-              selected: {_type},
-              onSelectionChanged: (v) => setState(() => _type = v.first),
-            ),
-            const SizedBox(height: 20),
-
-            TextFormField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                labelText: 'What? *',
-                hintText: _type.hint,
-                prefixIcon: const Icon(Icons.title),
-                border: const OutlineInputBorder(),
+            // 1. Type Selector Pills
+            Text(
+              'COMMITMENT TYPE',
+              style: TextStyle(
+                color: secondaryText,
+                fontSize: AppTypography.captionSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
               ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: CommitmentType.values.map((t) {
+                  final isSelected = _type == t;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(t.label),
+                      selected: isSelected,
+                      selectedColor: isDark
+                          ? AppColors.darkAccentSubtle
+                          : AppColors.lightAccentSubtle,
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? (isDark
+                                ? AppColors.darkAccent
+                                : AppColors.lightAccent)
+                            : secondaryText,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontSize: AppTypography.secondarySize,
+                      ),
+                      onSelected: (val) {
+                        if (val) {
+                          AppHaptics.selectionClick();
+                          setState(() => _type = t);
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // 2. Title Input
+            AppTextField(
+              controller: _titleController,
+              label: 'Title *',
+              hintText: _type.hint,
               textCapitalization: TextCapitalization.sentences,
+              autofocus: !_isEditing,
               validator: (v) => (v == null || v.trim().isEmpty)
                   ? 'Please describe the commitment'
                   : null,
-              autofocus: !_isEditing,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
-            TextFormField(
+            // 3. Description Input
+            AppTextField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Details (optional)',
-                hintText: 'Any additional context...',
-                prefixIcon: Icon(Icons.notes_outlined),
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
+              label: 'Context & Notes (optional)',
+              hintText: 'Additional details or background...',
               maxLines: 3,
               textCapitalization: TextCapitalization.sentences,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
 
-            // Contact picker
+            // 4. Contact Association Card
+            Text(
+              'ASSOCIATED CONTACT',
+              style: TextStyle(
+                color: secondaryText,
+                fontSize: AppTypography.captionSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
             if (_loadingContacts)
               const LinearProgressIndicator()
             else
-              DropdownButtonFormField<int>(
-                key: ValueKey(_selectedContact?.id),
-                initialValue: _selectedContact?.id,
-              decoration: const InputDecoration(
-                labelText: 'Related person (optional)',
-                prefixIcon: Icon(Icons.person_outline),
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('None')),
-                ..._contacts.map((c) => DropdownMenuItem(
-                      value: c.id,
-                      child: Text(c.name),
-                    )),
-              ],
-              onChanged: (id) {
-                setState(() {
-                  _selectedContact = id == null
-                      ? null
-                      : _contacts.firstWhere((c) => c.id == id);
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Due date
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today_outlined),
-              title: Text(_dueDate != null
-                  ? dateFormat.format(_dueDate!)
-                  : 'No due date'),
-              subtitle: const Text('Tap to set due date'),
-              trailing: _dueDate != null
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => setState(() {
-                        _dueDate = null;
-                        _conflicts = [];
-                      }),
-                    )
-                  : null,
-              onTap: _pickDueDate,
-            ),
-            if (_conflicts.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade700, width: 0.8),
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    isExpanded: true,
+                    value: _selectedContact?.id,
+                    hint: Text(
+                      'Select a contact (optional)',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.darkTextTertiary
+                            : AppColors.lightTextTertiary,
+                      ),
+                    ),
+                    items: [
+                      DropdownMenuItem<int>(
+                        value: null,
+                        child: Text(
+                          'None',
+                          style: TextStyle(color: secondaryText),
+                        ),
+                      ),
+                      ..._contacts.map(
+                        (c) => DropdownMenuItem<int>(
+                          value: c.id,
+                          child: Text(
+                            c.name,
+                            style: TextStyle(color: primaryText),
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (id) {
+                      AppHaptics.selectionClick();
+                      setState(() {
+                        _selectedContact = id == null
+                            ? null
+                            : _contacts.firstWhere((c) => c.id == id);
+                      });
+                    },
+                  ),
                 ),
+              ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // 5. Due Date Card
+            Text(
+              'DEADLINE',
+              style: TextStyle(
+                color: secondaryText,
+                fontSize: AppTypography.captionSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            AppCard(
+              onTap: _pickDueDate,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 20,
+                    color: isDark
+                        ? AppColors.darkAccent
+                        : AppColors.lightAccent,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _dueDate != null
+                              ? dateFormat.format(_dueDate!)
+                              : 'No deadline set',
+                          style: TextStyle(
+                            color: primaryText,
+                            fontSize: AppTypography.bodySize,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'Tap to pick date & time',
+                          style: TextStyle(
+                            color: secondaryText,
+                            fontSize: AppTypography.captionSize,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_dueDate != null)
+                    IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 20),
+                      onPressed: () {
+                        setState(() {
+                          _dueDate = null;
+                          _conflicts = [];
+                        });
+                      },
+                    ),
+                ],
+              ),
+            ),
+
+            // 6. Schedule Conflict Warning
+            if (_conflicts.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              AppCard(
+                backgroundColor: isDark
+                    ? AppColors.semanticAmberDarkSubtle
+                    : AppColors.semanticAmberLight,
+                borderColor: (isDark
+                        ? AppColors.semanticAmberDark
+                        : AppColors.semanticAmber)
+                    .withValues(alpha: 0.3),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning_amber_rounded,
-                        color: Colors.amber.shade900, size: 20),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 20,
+                      color: isDark
+                          ? AppColors.semanticAmberDark
+                          : AppColors.semanticAmber,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Potential Schedule Conflict',
+                            'Schedule Conflict Detected',
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber.shade900,
+                              color: isDark
+                                  ? AppColors.semanticAmberDark
+                                  : AppColors.semanticAmber,
+                              fontSize: AppTypography.secondarySize,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Overlaps with ${_conflicts.first['label']} (${DateFormat('MMM d, h:mm a').format(_conflicts.first['date'] as DateTime)})',
-                            style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                            'Overlaps within ±2 hours with ${_conflicts.first['label']} (${DateFormat('MMM d, h:mm a').format(_conflicts.first['date'] as DateTime)})',
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppColors.semanticAmberDark
+                                  : AppColors.semanticAmber,
+                              fontSize: AppTypography.captionSize,
+                            ),
                           ),
                         ],
                       ),
