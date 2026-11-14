@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/contact.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 
 /// Form screen for creating or editing a contact.
 class ContactFormScreen extends StatefulWidget {
@@ -30,11 +33,9 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
     _nameController = TextEditingController(text: widget.contact?.name ?? '');
     _phoneController = TextEditingController(text: widget.contact?.phone ?? '');
     _emailController = TextEditingController(text: widget.contact?.email ?? '');
-    _companyController =
-        TextEditingController(text: widget.contact?.company ?? '');
+    _companyController = TextEditingController(text: widget.contact?.company ?? '');
     _roleController = TextEditingController(text: widget.contact?.role ?? '');
-    _notesController =
-        TextEditingController(text: widget.contact?.notes ?? '');
+    _notesController = TextEditingController(text: widget.contact?.notes ?? '');
     _cadenceDays = widget.contact?.cadenceDays ?? 30;
   }
 
@@ -51,25 +52,16 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    AppHaptics.success();
 
     final contact = Contact(
       id: widget.contact?.id,
       name: _nameController.text.trim(),
-      phone: _phoneController.text.trim().isEmpty
-          ? null
-          : _phoneController.text.trim(),
-      email: _emailController.text.trim().isEmpty
-          ? null
-          : _emailController.text.trim(),
-      company: _companyController.text.trim().isEmpty
-          ? null
-          : _companyController.text.trim(),
-      role: _roleController.text.trim().isEmpty
-          ? null
-          : _roleController.text.trim(),
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      company: _companyController.text.trim().isEmpty ? null : _companyController.text.trim(),
+      role: _roleController.text.trim().isEmpty ? null : _roleController.text.trim(),
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       cadenceDays: _cadenceDays,
       createdAt: widget.contact?.createdAt,
     );
@@ -80,120 +72,128 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Contact' : 'New Contact'),
+        title: Text(_isEditing ? 'Edit Contact' : 'New Contact', style: const TextStyle(fontWeight: FontWeight.w700)),
         actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('Save'),
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: AppButton(
+              label: 'Save',
+              size: AppButtonSize.sm,
+              onPressed: _save,
+            ),
           ),
         ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           children: [
-            TextFormField(
+            AppTextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name *',
-                hintText: 'e.g. Rahim Ahmed',
-                prefixIcon: Icon(Icons.person_outline),
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.words,
+              label: 'Full Name *',
+              hintText: 'e.g. Rahim Ahmed',
+              prefixIcon: Icons.person_outline_rounded,
+              autofocus: !_isEditing,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Name is required';
                 }
                 return null;
               },
-              autofocus: !_isEditing,
             ),
-            const SizedBox(height: 16),
-            TextFormField(
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
               controller: _phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                hintText: 'e.g. +880 1XX XXXXXXX',
-                prefixIcon: Icon(Icons.phone_outlined),
-                border: OutlineInputBorder(),
-              ),
+              label: 'Phone Number',
+              hintText: 'e.g. +880 1XX XXXXXXX',
+              prefixIcon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 16),
-            TextFormField(
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'e.g. rahim@company.com',
-                prefixIcon: Icon(Icons.email_outlined),
-                border: OutlineInputBorder(),
-              ),
+              label: 'Email Address',
+              hintText: 'e.g. rahim@company.com',
+              prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 16),
-            TextFormField(
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
               controller: _companyController,
-              decoration: const InputDecoration(
-                labelText: 'Company / Organization',
-                hintText: 'e.g. ABC Corporation',
-                prefixIcon: Icon(Icons.business_outlined),
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.words,
+              label: 'Company / Organization',
+              hintText: 'e.g. ABC Corporation',
+              prefixIcon: Icons.business_outlined,
             ),
-            const SizedBox(height: 16),
-            TextFormField(
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
               controller: _roleController,
-              decoration: const InputDecoration(
-                labelText: 'Role / Title',
-                hintText: 'e.g. Marketing Director',
-                prefixIcon: Icon(Icons.badge_outlined),
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.words,
+              label: 'Role / Designation',
+              hintText: 'e.g. Chief Marketing Officer',
+              prefixIcon: Icons.badge_outlined,
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<int>(
-              key: ValueKey(_cadenceDays),
-              initialValue: _cadenceDays,
-              decoration: const InputDecoration(
-                labelText: 'Touchpoint Cadence (Health Radar)',
-                helperText: 'How often you want to reconnect with this person',
-                prefixIcon: Icon(Icons.sync_outlined),
-                border: OutlineInputBorder(),
+            const SizedBox(height: AppSpacing.lg),
+
+            // Cadence Selector
+            Text(
+              'TOUCHPOINT CADENCE (HEALTH RADAR)',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.muted(context),
               ),
-              items: const [
-                DropdownMenuItem(value: 7, child: Text('Weekly (Every 7 days)')),
-                DropdownMenuItem(value: 14, child: Text('Bi-weekly (Every 14 days)')),
-                DropdownMenuItem(value: 30, child: Text('Monthly (Every 30 days - Default)')),
-                DropdownMenuItem(value: 60, child: Text('Bi-monthly (Every 60 days)')),
-                DropdownMenuItem(value: 90, child: Text('Quarterly (Every 90 days)')),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'How frequently you aim to reconnect with this person:',
+              style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _buildCadenceChip(7, 'Weekly (7d)'),
+                _buildCadenceChip(14, 'Bi-weekly (14d)'),
+                _buildCadenceChip(30, 'Monthly (30d)'),
+                _buildCadenceChip(60, '60 Days'),
+                _buildCadenceChip(90, 'Quarterly (90d)'),
               ],
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _cadenceDays = val);
-                }
-              },
             ),
-            const SizedBox(height: 16),
-            TextFormField(
+            const SizedBox(height: AppSpacing.lg),
+
+            AppTextField(
               controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes',
-                hintText: 'Any important details about this person...',
-                prefixIcon: Icon(Icons.notes_outlined),
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
+              label: 'Background & Relationship Notes',
+              hintText: 'Important preferences, mutual connections, or personal context...',
+              prefixIcon: Icons.notes_rounded,
               maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
             ),
+            const SizedBox(height: AppSpacing.xl),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCadenceChip(int days, String label) {
+    final isSelected = _cadenceDays == days;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.primary,
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        color: isSelected ? Colors.white : AppColors.foreground(context),
+      ),
+      onSelected: (_) {
+        AppHaptics.lightImpact();
+        setState(() => _cadenceDays = days);
+      },
     );
   }
 }

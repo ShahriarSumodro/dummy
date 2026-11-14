@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import '../models/contact.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'contact_form_screen.dart';
 import 'contact_detail_screen.dart';
 import 'organizations_screen.dart';
 
 /// People / Contacts screen.
-/// Shows a searchable list of contacts with add, view, and search.
+/// Premium, clean contact directory with touchpoint cadence status,
+/// duplicate detection, companies directory, and quick search.
 class PeopleScreen extends StatefulWidget {
   const PeopleScreen({super.key});
 
@@ -44,6 +48,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
   }
 
   Future<void> _addContact() async {
+    AppHaptics.lightImpact();
     final result = await Navigator.push<Contact>(
       context,
       MaterialPageRoute(
@@ -58,7 +63,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
   }
 
   Future<void> _openContact(Contact contact) async {
-    final _ = await Navigator.push<bool>(
+    AppHaptics.lightImpact();
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => ContactDetailScreen(contactId: contact.id!),
@@ -72,6 +78,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
   }
 
   void _toggleSearch() {
+    AppHaptics.lightImpact();
     setState(() {
       _searching = !_searching;
       if (!_searching) {
@@ -82,132 +89,156 @@ class _PeopleScreenState extends State<PeopleScreen> {
   }
 
   Future<void> _checkDuplicates() async {
+    AppHaptics.mediumImpact();
     final duplicates = await _db.findDuplicateContacts();
     if (!mounted) return;
 
     if (duplicates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No duplicate contacts found. Your directory is clean!'),
+        SnackBar(
+          content: const Text('No duplicate contacts found. Directory is clean!'),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
         ),
       );
       return;
     }
 
-    await showModalBottomSheet(
+    await AppBottomSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.merge_type, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Duplicate Contacts Detected (${duplicates.length})',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'RemembrAI can merge secondary contact information, promises, and interactions into the primary contact.',
-                style: TextStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 16),
-              ...duplicates.map((dup) {
-                final Contact primary = dup['primary'] as Contact;
-                final Contact duplicate = dup['duplicate'] as Contact;
-                final String reason = dup['reason'] as String;
+      title: 'Duplicate Contacts Detected (${duplicates.length})',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'RemembrAI can merge secondary contact information, promises, and interactions into the primary contact.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.muted(context),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ...duplicates.map((dup) {
+            final Contact primary = dup['primary'] as Contact;
+            final Contact duplicate = dup['duplicate'] as Contact;
+            final String reason = dup['reason'] as String;
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+            return AppCard(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.merge_type_rounded, size: 16, color: AppColors.primary),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
                           reason,
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Primary: ${primary.name} (${primary.company ?? primary.role ?? 'No company'})',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          'Duplicate: ${duplicate.name} (${duplicate.company ?? duplicate.role ?? 'No company'})',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 10),
-                        FilledButton.tonal(
-                          onPressed: () async {
-                            await _db.mergeContacts(primary.id!, duplicate.id!);
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            _loadContacts();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Merged "${duplicate.name}" into "${primary.name}".',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          child: const Text('Merge Duplicates'),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                );
-              }),
-            ],
-          ),
-        ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Primary: ${primary.name} (${primary.company ?? primary.role ?? 'No company'})',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  Text(
+                    'Duplicate: ${duplicate.name} (${duplicate.company ?? duplicate.role ?? 'No company'})',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: 'Merge Duplicates',
+                    icon: Icons.call_merge_rounded,
+                    size: AppButtonSize.sm,
+                    variant: AppButtonVariant.tonal,
+                    onPressed: () async {
+                      AppHaptics.success();
+                      await _db.mergeContacts(primary.id!, duplicate.id!);
+                      if (context.mounted) Navigator.pop(context);
+                      _loadContacts();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Merged "${duplicate.name}" into "${primary.name}".',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: AppSpacing.md),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
+        titleSpacing: AppSpacing.md,
         title: _searching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
+                style: const TextStyle(fontSize: 16),
                 decoration: const InputDecoration(
                   hintText: 'Search contacts...',
                   border: InputBorder.none,
                 ),
                 onChanged: (query) => _loadContacts(query: query),
               )
-            : const Text('People'),
+            : Row(
+                children: [
+                  const Text('People', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                  if (!_loading && _contacts.isNotEmpty) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.subtle(context),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                      ),
+                      child: Text(
+                        '${_contacts.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.muted(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.merge_type),
-            tooltip: 'Merge Duplicate Contacts',
+            icon: const Icon(Icons.merge_type_rounded),
+            tooltip: 'Find & Merge Duplicates',
             onPressed: _checkDuplicates,
           ),
           IconButton(
             icon: const Icon(Icons.business_outlined),
             tooltip: 'Companies Directory',
             onPressed: () {
+              AppHaptics.lightImpact();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const OrganizationsScreen()),
@@ -215,78 +246,82 @@ class _PeopleScreenState extends State<PeopleScreen> {
             },
           ),
           IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search),
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
             onPressed: _toggleSearch,
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildLoadingState()
           : _contacts.isEmpty
-              ? _buildEmptyState(theme)
-              : _buildContactList(theme),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addContact,
-        child: const Icon(Icons.person_add),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _searching ? Icons.search_off : Icons.people_outline,
-              size: 80,
-              color: theme.colorScheme.primary.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _searching ? 'No matches found' : 'No contacts yet',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _searching
-                  ? 'Try a different search term.'
-                  : 'Tap + to add people you work with.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              ? _buildEmptyState()
+              : _buildContactList(),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72), // clear floating pill nav
+        child: FloatingActionButton(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          onPressed: _addContact,
+          child: const Icon(Icons.person_add_rounded),
         ),
       ),
     );
   }
 
-  Widget _buildContactList(ThemeData theme) {
+  Widget _buildLoadingState() {
     return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      itemCount: 8,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+        child: AppSkeleton(
+          height: 64,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: AppEmptyState(
+        icon: _searching ? Icons.search_off_rounded : Icons.people_outline_rounded,
+        title: _searching ? 'No matching contacts' : 'No contacts yet',
+        message: _searching
+            ? 'Try searching by a different name, company or role.'
+            : 'Add business associates, clients, and partners to track commitments and touchpoint cadences.',
+        actionLabel: _searching ? 'Clear Search' : 'Add First Contact',
+        onAction: _searching
+            ? () {
+                _searchController.clear();
+                _toggleSearch();
+              }
+            : _addContact,
+      ),
+    );
+  }
+
+  Widget _buildContactList() {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 100),
       itemCount: _contacts.length,
       itemBuilder: (context, index) {
         final contact = _contacts[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: theme.colorScheme.primaryContainer,
-            child: Text(
-              contact.initials,
-              style: TextStyle(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
-              ),
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: AppListRow(
+            leading: AppAvatar(
+              name: contact.name,
+              size: AppAvatarSize.md,
             ),
+            title: contact.name,
+            subtitle: contact.subtitle.isNotEmpty ? contact.subtitle : null,
+            trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
+            onTap: () => _openContact(contact),
           ),
-          title: Text(contact.name),
-          subtitle: contact.subtitle.isNotEmpty
-              ? Text(contact.subtitle)
-              : null,
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _openContact(contact),
         );
       },
     );

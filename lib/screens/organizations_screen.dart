@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/organization.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'organization_form_screen.dart';
 import 'organization_detail_screen.dart';
 
@@ -45,7 +48,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading organizations: $e')),
+          SnackBar(content: Text('Error loading companies: $e')),
         );
       }
     } finally {
@@ -56,6 +59,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
   }
 
   Future<void> _addOrg() async {
+    AppHaptics.lightImpact();
     final result = await Navigator.push<Organization>(
       context,
       MaterialPageRoute(builder: (_) => const OrganizationFormScreen()),
@@ -68,25 +72,49 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
+        titleSpacing: AppSpacing.md,
         title: _searching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
+                style: const TextStyle(fontSize: 16),
                 decoration: const InputDecoration(
                   hintText: 'Search companies...',
                   border: InputBorder.none,
                 ),
                 onChanged: (q) => _loadOrganizations(query: q),
               )
-            : const Text('Companies & Organizations'),
+            : Row(
+                children: [
+                  const Text('Companies', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                  if (!_loading && _orgs.isNotEmpty) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.subtle(context),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                      ),
+                      child: Text(
+                        '${_orgs.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.muted(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
         actions: [
           IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search),
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
             onPressed: () {
+              AppHaptics.lightImpact();
               setState(() {
                 _searching = !_searching;
                 if (!_searching) {
@@ -96,71 +124,62 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
               });
             },
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              itemCount: 6,
+              itemBuilder: (_, __) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: AppSkeleton(height: 72, borderRadius: BorderRadius.circular(AppRadius.lg)),
+              ),
+            )
           : _orgs.isEmpty
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.business_outlined,
-                          size: 70,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No companies added yet',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Group your contacts and commitments by company or client organization.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+                  child: AppEmptyState(
+                    icon: Icons.business_outlined,
+                    title: _searching ? 'No matching companies' : 'No companies added yet',
+                    message: _searching
+                        ? 'Try a different search term.'
+                        : 'Group contacts and commitments by company or client organization.',
+                    actionLabel: _searching ? 'Clear Search' : 'Add First Company',
+                    onAction: _searching
+                        ? () {
+                            _searchController.clear();
+                            setState(() => _searching = false);
+                            _loadOrganizations();
+                          }
+                        : _addOrg,
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 100),
                   itemCount: _orgs.length,
                   itemBuilder: (context, index) {
                     final org = _orgs[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          child: Text(
-                            org.initials,
-                            style: TextStyle(
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: AppListRow(
+                        leading: AppAvatar(
+                          name: org.name,
+                          size: AppAvatarSize.md,
                         ),
-                        title: Text(
-                          org.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          [
-                            if (org.industry != null) org.industry!,
-                            '${org.contactCount} contact(s)',
-                            if (org.activeCommitmentCount > 0)
-                              '${org.activeCommitmentCount} active promise(s)',
-                          ].join(' · '),
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
+                        title: org.name,
+                        subtitle: [
+                          if (org.industry != null) org.industry!,
+                          '${org.contactCount} contact(s)',
+                        ].join(' · '),
+                        badge: org.activeCommitmentCount > 0
+                            ? AppBadge(
+                                label: '${org.activeCommitmentCount} promises',
+                                variant: AppBadgeVariant.warning,
+                              )
+                            : null,
+                        trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
                         onTap: () async {
+                          AppHaptics.lightImpact();
                           final updated = await Navigator.push<bool>(
                             context,
                             MaterialPageRoute(
@@ -175,9 +194,15 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addOrg,
-        child: const Icon(Icons.add_business),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: FloatingActionButton(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          onPressed: _addOrg,
+          child: const Icon(Icons.add_business_rounded),
+        ),
       ),
     );
   }

@@ -3,6 +3,9 @@ import '../models/organization.dart';
 import '../models/contact.dart';
 import '../models/commitment.dart';
 import '../services/database_service.dart';
+import '../theme/app_haptics.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/widgets.dart';
 import 'organization_form_screen.dart';
 import 'contact_detail_screen.dart';
 import 'commitment_detail_screen.dart';
@@ -59,6 +62,7 @@ class _OrganizationDetailScreenState extends State<OrganizationDetailScreen> {
 
   Future<void> _editOrg() async {
     if (_org == null) return;
+    AppHaptics.lightImpact();
     final updated = await Navigator.push<Organization>(
       context,
       MaterialPageRoute(
@@ -72,11 +76,12 @@ class _OrganizationDetailScreenState extends State<OrganizationDetailScreen> {
   }
 
   Future<void> _deleteOrg() async {
+    AppHaptics.warning();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Company'),
-        content: Text('Delete "${_org?.name}"? Linked contacts will remain.'),
+        content: Text('Delete "${_org?.name}"? Linked contacts and promises will remain.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -84,7 +89,7 @@ class _OrganizationDetailScreenState extends State<OrganizationDetailScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -92,6 +97,7 @@ class _OrganizationDetailScreenState extends State<OrganizationDetailScreen> {
     );
 
     if (confirmed == true && mounted) {
+      AppHaptics.success();
       await _db.deleteOrganization(widget.organizationId);
       if (mounted) {
         Navigator.pop(context, true);
@@ -103,162 +109,213 @@ class _OrganizationDetailScreenState extends State<OrganizationDetailScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
+        backgroundColor: AppColors.background(context),
         appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
+        body: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: const [
+            AppSkeleton(height: 120),
+            SizedBox(height: AppSpacing.md),
+            AppSkeleton(height: 140),
+            SizedBox(height: AppSpacing.md),
+            AppSkeleton(height: 140),
+          ],
+        ),
       );
     }
 
     if (_org == null) {
       return Scaffold(
+        backgroundColor: AppColors.background(context),
         appBar: AppBar(),
-        body: const Center(child: Text('Company not found')),
+        body: const Center(
+          child: AppEmptyState(
+            icon: Icons.business_outlined,
+            title: 'Company not found',
+            message: 'This company record may have been removed.',
+          ),
+        ),
       );
     }
 
     final org = _org!;
-    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: Text(org.name),
+        titleSpacing: 0,
+        title: Text(org.name, style: const TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit Company',
             onPressed: _editOrg,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: 'Delete Company',
             onPressed: _deleteOrg,
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
         children: [
-          Center(
-            child: CircleAvatar(
-              radius: 36,
-              backgroundColor: theme.colorScheme.primaryContainer,
-              child: Text(
-                org.initials,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onPrimaryContainer,
+          // ── Header Card ──
+          AppCard(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              children: [
+                AppAvatar(name: org.name, size: AppAvatarSize.xl),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  org.name,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.4,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
+                if (org.industry != null && org.industry!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  AppBadge(
+                    label: org.industry!,
+                    variant: AppBadgeVariant.neutral,
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              org.name,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+          const SizedBox(height: AppSpacing.md),
+
+          // ── Details Card ──
+          if ((org.website != null && org.website!.isNotEmpty) ||
+              (org.address != null && org.address!.isNotEmpty) ||
+              (org.notes != null && org.notes!.isNotEmpty)) ...[
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'COMPANY DETAILS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: AppColors.muted(context),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (org.website != null && org.website!.isNotEmpty)
+                    _buildRow(Icons.language_rounded, 'Website', org.website!),
+                  if (org.address != null && org.address!.isNotEmpty)
+                    _buildRow(Icons.location_on_outlined, 'Address', org.address!),
+                  if (org.notes != null && org.notes!.isNotEmpty)
+                    _buildRow(Icons.notes_rounded, 'Notes', org.notes!),
+                ],
               ),
             ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          // ── Associated Contacts ──
+          AppSectionHeader(
+            title: 'People at ${org.name}',
+            count: _contacts.length,
           ),
-          if (org.industry != null)
-            Center(
-              child: Text(
-                org.industry!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
-
-          // Details ListTiles
-          if (org.website != null)
-            ListTile(
-              leading: const Icon(Icons.language),
-              title: const Text('Website'),
-              subtitle: Text(org.website!),
-            ),
-          if (org.address != null)
-            ListTile(
-              leading: const Icon(Icons.location_on_outlined),
-              title: const Text('Address'),
-              subtitle: Text(org.address!),
-            ),
-          if (org.notes != null)
-            ListTile(
-              leading: const Icon(Icons.notes_outlined),
-              title: const Text('Notes'),
-              subtitle: Text(org.notes!),
-            ),
-
-          const Divider(height: 32),
-
-          // Associated Contacts
-          Text(
-            'People at ${org.name} (${_contacts.length})',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
 
           if (_contacts.isEmpty)
-            Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('No contacts linked to ${org.name} yet.'),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                'No contacts linked to ${org.name} yet.',
+                style: TextStyle(fontSize: 13, color: AppColors.muted(context)),
               ),
             )
           else
-            ..._contacts.map((c) => ListTile(
-                  leading: CircleAvatar(
-                    child: Text(c.initials),
-                  ),
-                  title: Text(c.name),
-                  subtitle: c.role != null ? Text(c.role!) : null,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ContactDetailScreen(contactId: c.id!),
-                    ),
+            ..._contacts.map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: AppListRow(
+                    leading: AppAvatar(name: c.name, size: AppAvatarSize.sm),
+                    title: c.name,
+                    subtitle: c.role,
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
+                    onTap: () {
+                      AppHaptics.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ContactDetailScreen(contactId: c.id!)),
+                      );
+                    },
                   ),
                 )),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
 
-          // Associated Commitments
-          Text(
-            'Commitments with ${org.name} (${_commitments.length})',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          // ── Associated Commitments ──
+          AppSectionHeader(
+            title: 'Commitments with ${org.name}',
+            count: _commitments.length,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
 
           if (_commitments.isEmpty)
-            const Card(
-              elevation: 0,
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No pending commitments with this company.'),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                'No pending commitments with this company.',
+                style: TextStyle(fontSize: 13, color: AppColors.muted(context)),
               ),
             )
           else
-            ..._commitments.map((cm) => ListTile(
-                  leading: const Icon(Icons.handshake_outlined),
-                  title: Text(cm.title),
-                  subtitle: Text('${cm.type.label} · ${cm.status.label}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          CommitmentDetailScreen(commitmentId: cm.id!),
-                    ),
+            ..._commitments.map((cm) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: AppListRow(
+                    leading: const Icon(Icons.handshake_outlined, size: 20, color: AppColors.primary),
+                    title: cm.title,
+                    subtitle: '${cm.type.label} · ${cm.status.label}',
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
+                    onTap: () {
+                      AppHaptics.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CommitmentDetailScreen(commitmentId: cm.id!),
+                        ),
+                      );
+                    },
                   ),
                 )),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 40),
+  Widget _buildRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.muted(context)),
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
     );
