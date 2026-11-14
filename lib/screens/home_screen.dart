@@ -4,25 +4,20 @@ import '../models/commitment.dart';
 import '../models/reminder.dart';
 import '../services/database_service.dart';
 import '../services/voice_service.dart';
-import 'contact_form_screen.dart';
-import 'commitment_form_screen.dart';
-import 'reminder_form_screen.dart';
+import '../theme/design_tokens.dart';
+import '../theme/app_haptics.dart';
+import '../widgets/widgets.dart';
 import 'commitment_detail_screen.dart';
-import 'settings_screen.dart';
-import 'ai_capture_sheet.dart';
-import 'assistant_chat_screen.dart';
-import 'meetings_screen.dart';
-import 'organizations_screen.dart';
-import 'briefing_screen.dart';
-import 'relationship_health_screen.dart';
-import 'action_drafts_screen.dart';
-import 'global_search_screen.dart';
+import 'commitment_form_screen.dart';
 import 'commitments_screen.dart';
-import 'analytics_screen.dart';
-import 'voice_capture_screen.dart';
+import 'reminder_form_screen.dart';
+import 'settings_screen.dart';
+import 'assistant_chat_screen.dart';
+import 'global_search_screen.dart';
 
-/// Home / Dashboard screen.
-/// Shows live metrics, quick actions, and urgent follow-ups.
+/// Redesigned Executive Home & Assistant Dashboard.
+/// Follows strict Linear/Things design aesthetics:
+/// Restraint, calm typography, generous whitespace, skeleton loaders, and tactile feedback.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -48,6 +43,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDashboardData();
   }
 
+  @override
+  void dispose() {
+    VoiceService().stop();
+    super.dispose();
+  }
+
   Future<void> _loadDashboardData() async {
     try {
       final overdue = await _db.countOverdueCommitments();
@@ -55,7 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final upcoming = await _db.countUpcomingReminders();
       final contacts = await _db.countContacts();
 
-      final allCommitments = await _db.getAllCommitments(statusFilter: 'pending');
+      final allCommitments =
+          await _db.getAllCommitments(statusFilter: 'pending');
       final urgent = allCommitments
           .where((c) => c.isOverdue || _isDueToday(c.dueDate))
           .take(5)
@@ -80,30 +82,31 @@ class _HomeScreenState extends State<HomeScreen> {
           _loading = false;
         });
       }
-    } catch (e, stack) {
-      debugPrint('HomeScreen error loading dashboard: $e\n$stack');
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  @override
-  void dispose() {
-    VoiceService().stop();
-    super.dispose();
+  bool _isDueToday(DateTime? date) {
+    if (date == null) return false;
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 
   String _buildSpokenBriefingSummary() {
     final buffer = StringBuffer();
-    buffer.write('Good day! Here is your RemembrAI business memory briefing. ');
+    buffer.write('Good day. Here is your RemembrAI business memory briefing. ');
     if (_overdueCount > 0) {
-      buffer.write('You have $_overdueCount overdue promise${_overdueCount > 1 ? 's' : ''} that need attention. ');
+      buffer.write(
+          'You have $_overdueCount overdue promise${_overdueCount > 1 ? 's' : ''} requiring attention. ');
     } else {
-      buffer.write('You have zero overdue promises. ');
+      buffer.write('Zero overdue promises pending. ');
     }
     if (_todayCount > 0) {
-      buffer.write('You have $_todayCount promise${_todayCount > 1 ? 's' : ''} due today. ');
+      buffer.write(
+          'You have $_todayCount promise${_todayCount > 1 ? 's' : ''} scheduled today. ');
     } else {
       buffer.write('No deliverables due today. ');
     }
@@ -121,29 +124,63 @@ class _HomeScreenState extends State<HomeScreen> {
     return buffer.toString();
   }
 
-  bool _isDueToday(DateTime? date) {
-    if (date == null) return false;
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final primaryText =
+        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final secondaryText =
+        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'RemembrAI',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.screenSide),
+          child: Center(
+            child: GestureDetector(
+              onTap: () async {
+                AppHaptics.lightImpact();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
+                _loadDashboardData();
+              },
+              child: const AppAvatar(name: 'User', size: 34),
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Text(
+              'RemembrAI',
+              style: TextStyle(
+                color: primaryText,
+                fontSize: AppTypography.subtitleSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: AppColors.semanticGreen,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.search_rounded),
             tooltip: 'Search Memory',
             onPressed: () {
+              AppHaptics.lightImpact();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const GlobalSearchScreen()),
@@ -152,587 +189,400 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.psychology_outlined),
-            tooltip: 'Talk to Assistant',
+            tooltip: 'Ask Assistant',
             onPressed: () {
+              AppHaptics.lightImpact();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AssistantChatScreen()),
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-              _loadDashboardData();
-            },
-          ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(
+              padding: const EdgeInsets.all(AppSpacing.screenSide),
+              children: [
+                AppSkeleton.card(height: 90),
+                const SizedBox(height: AppSpacing.md),
+                AppSkeleton.card(height: 72),
+                const SizedBox(height: AppSpacing.lg),
+                AppSkeleton.row(),
+                const SizedBox(height: AppSpacing.xs),
+                AppSkeleton.row(),
+              ],
+            )
           : RefreshIndicator(
               onRefresh: _loadDashboardData,
+              color: isDark ? AppColors.darkAccent : AppColors.lightAccent,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenSide,
+                  AppSpacing.sm,
+                  AppSpacing.screenSide,
+                  100, // Space for floating bottom bar
+                ),
                 children: [
-                  // Greeting & Subtitle
-                  Text(
-                    'Personal Business Memory',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Track promises, follow-ups, and commitments.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Overdue attention alert banner
-                  if (_overdueCount > 0)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.errorContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: theme.colorScheme.error.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded,
-                              color: theme.colorScheme.error, size: 28),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '$_overdueCount Overdue Promise${_overdueCount > 1 ? 's' : ''} Need Action',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onErrorContainer,
-                                  ),
+                  // 1. Spoken Executive Audio Briefing Module
+                  ValueListenableBuilder<TtsState>(
+                    valueListenable: VoiceService().ttsState,
+                    builder: (context, ttsState, _) {
+                      final isPlaying = ttsState == TtsState.playing;
+                      return AppCard(
+                        isSubtle: true,
+                        onTap: () {
+                          if (isPlaying) {
+                            AppHaptics.lightImpact();
+                            VoiceService().stop();
+                          } else {
+                            AppHaptics.mediumImpact();
+                            final speech = _buildSpokenBriefingSummary();
+                            VoiceService().speak(speech);
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: isPlaying
+                                    ? (isDark
+                                        ? AppColors.darkAccent
+                                        : AppColors.lightAccent)
+                                    : (isDark
+                                        ? AppColors.darkSurface
+                                        : AppColors.lightSurface),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppColors.darkHairline
+                                      : AppColors.lightHairline,
+                                  width: 1,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Tap to view and prepare instant follow-up drafts.',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onErrorContainer,
-                                  ),
-                                ),
-                              ],
+                              ),
+                              child: Icon(
+                                isPlaying
+                                    ? Icons.stop_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: 24,
+                                color: isPlaying
+                                    ? Colors.white
+                                    : (isDark
+                                        ? AppColors.darkTextPrimary
+                                        : AppColors.lightTextPrimary),
+                              ),
                             ),
-                          ),
-                          FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: theme.colorScheme.error,
-                              foregroundColor: theme.colorScheme.onError,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const CommitmentsScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text('Review', style: TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Voice Audio Briefing Card
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: ValueListenableBuilder<TtsState>(
-                      valueListenable: VoiceService().ttsState,
-                      builder: (context, state, _) {
-                        final isSpeaking = state == TtsState.playing;
-                        return Material(
-                          color: isSpeaking
-                              ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              if (isSpeaking) {
-                                VoiceService().stop();
-                              } else {
-                                final spokenText = _buildSpokenBriefingSummary();
-                                VoiceService().speak(spokenText);
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              child: Row(
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    isSpeaking ? Icons.stop_circle : Icons.record_voice_over_outlined,
-                                    color: isSpeaking ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          isSpeaking ? 'Speaking Daily Briefing...' : 'Listen to Morning Audio Briefing',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: isSpeaking ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        Text(
-                                          isSpeaking
-                                              ? 'Tap to stop voice playback'
-                                              : '$_todayCount due today • $_overdueCount overdue • $_contactsCount contacts',
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    isPlaying
+                                        ? 'Speaking Morning Briefing...'
+                                        : 'Daily Executive Briefing',
+                                    style: TextStyle(
+                                      color: primaryText,
+                                      fontSize: AppTypography.bodySize,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: -0.1,
                                     ),
                                   ),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    isSpeaking ? 'STOP' : 'LISTEN',
+                                    isPlaying
+                                        ? 'Tap to pause audio speech'
+                                        : '$_todayCount due today · $_overdueCount overdue · $_contactsCount in network',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.primary,
+                                      color: secondaryText,
+                                      fontSize: AppTypography.captionSize,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            AppBadge(
+                              label: isPlaying ? 'ACTIVE' : 'AUDIO',
+                              variant: isPlaying
+                                  ? AppBadgeVariant.accent
+                                  : AppBadgeVariant.neutral,
+                              isSmall: true,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
+                  const SizedBox(height: AppSpacing.md),
 
-                  // Speak to RemembrAI Voice Decoder Card
-                  Card(
-                    color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: theme.colorScheme.secondary.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.secondary,
-                        foregroundColor: theme.colorScheme.onSecondary,
-                        child: const Icon(Icons.mic),
-                      ),
-                      title: const Text(
-                        'Speak with RemembrAI (Voice AI)',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: const Text('Speak naturally → decodes commitments & sets up reminders'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () async {
-                        final res = await Navigator.push<bool>(
+                  // 2. Overdue Attention Alert (Contextual)
+                  if (_overdueCount > 0) ...[
+                    AppCard(
+                      backgroundColor: isDark
+                          ? AppColors.semanticRedDarkSubtle
+                          : AppColors.semanticRedLight,
+                      borderColor: (isDark
+                              ? AppColors.semanticRedDark
+                              : AppColors.semanticRed)
+                          .withValues(alpha: 0.3),
+                      onTap: () {
+                        AppHaptics.lightImpact();
+                        Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const VoiceCaptureScreen()),
-                        );
-                        if (res == true) {
-                          _loadDashboardData();
-                        }
+                          MaterialPageRoute(
+                            builder: (_) => const CommitmentsScreen(),
+                          ),
+                        ).then((_) => _loadDashboardData());
                       },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // AI Smart Capture Card
-                  Card(
-                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        child: const Icon(Icons.auto_awesome),
-                      ),
-                      title: const Text(
-                        'AI Memory Capture',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: const Text('Note or conversation → structured promises & follow-ups'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _openAiCapture,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Quick Action Buttons Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final res = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ContactFormScreen(),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.semanticRedDark
+                                : AppColors.semanticRed,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              '$_overdueCount overdue promise${_overdueCount > 1 ? 's' : ''} require attention',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppColors.semanticRedDark
+                                    : AppColors.semanticRed,
+                                fontSize: AppTypography.secondarySize,
+                                fontWeight: FontWeight.w600,
                               ),
-                            );
-                            if (res != null) {
-                              await _db.insertContact(res);
-                              _loadDashboardData();
-                            }
-                          },
-                          icon: const Icon(Icons.person_add, size: 18),
-                          label: const Text('Contact', style: TextStyle(fontSize: 12)),
-                        ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: isDark
+                                ? AppColors.semanticRedDark
+                                : AppColors.semanticRed,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: () async {
-                            final res = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const CommitmentFormScreen(),
-                              ),
-                            );
-                            if (res != null) {
-                              await _db.insertCommitment(res);
-                              _loadDashboardData();
-                            }
-                          },
-                          icon: const Icon(Icons.add_task, size: 18),
-                          label: const Text('Commit', style: TextStyle(fontSize: 12)),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final res = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ReminderFormScreen(),
-                              ),
-                            );
-                            if (res != null) {
-                              await _db.insertReminder(res);
-                              _loadDashboardData();
-                            }
-                          },
-                          icon: const Icon(Icons.alarm_add, size: 18),
-                          label: const Text('Reminder', style: TextStyle(fontSize: 12)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
 
-                  // 2x2 Grid of Key Metrics
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricCard(
-                          icon: Icons.warning_amber_rounded,
+                  // 3. Compact High-Density Executive Metrics
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _MetricColumn(
+                          count: _todayCount,
+                          label: 'Today',
+                          color: isDark
+                              ? AppColors.darkAccent
+                              : AppColors.lightAccent,
+                        ),
+                        _Divider(),
+                        _MetricColumn(
                           count: _overdueCount,
                           label: 'Overdue',
-                          color: theme.colorScheme.error,
+                          color: _overdueCount > 0
+                              ? (isDark
+                                  ? AppColors.semanticRedDark
+                                  : AppColors.semanticRed)
+                              : secondaryText,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MetricCard(
-                          icon: Icons.today,
-                          count: _todayCount,
-                          label: 'Due Today',
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricCard(
-                          icon: Icons.notifications_active_outlined,
+                        _Divider(),
+                        _MetricColumn(
                           count: _upcomingRemindersCount,
-                          label: 'Upcoming (7d)',
-                          color: Colors.orange.shade700,
+                          label: 'Alerts',
+                          color: secondaryText,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MetricCard(
-                          icon: Icons.contacts_outlined,
+                        _Divider(),
+                        _MetricColumn(
                           count: _contactsCount,
-                          label: 'Contacts',
-                          color: theme.colorScheme.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Executive Hub Shortcuts
-                  Text(
-                    'Executive Toolkit',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _ToolPill(
-                          icon: Icons.psychology,
-                          label: 'AI Chat',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const AssistantChatScreen(),
-                            ),
-                          ),
-                        ),
-                        _ToolPill(
-                          icon: Icons.auto_stories_outlined,
-                          label: 'Briefing Memo',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const BriefingScreen(),
-                            ),
-                          ),
-                        ),
-                        _ToolPill(
-                          icon: Icons.groups_outlined,
-                          label: 'Meetings',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const MeetingsScreen(),
-                            ),
-                          ),
-                        ),
-                        _ToolPill(
-                          icon: Icons.business_outlined,
-                          label: 'Companies',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const OrganizationsScreen(),
-                            ),
-                          ),
-                        ),
-                        _ToolPill(
-                          icon: Icons.drafts_outlined,
-                          label: 'Drafts',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ActionDraftsScreen(),
-                            ),
-                          ),
-                        ),
-                        _ToolPill(
-                          icon: Icons.radar,
-                          label: 'Health Radar',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RelationshipHealthScreen(),
-                            ),
-                          ),
-                        ),
-                        _ToolPill(
-                          icon: Icons.insights_outlined,
-                          label: 'Say-Do Stats',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const AnalyticsScreen(),
-                            ),
-                          ),
+                          label: 'Network',
+                          color: secondaryText,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xl),
 
-                  // Urgent Commitments Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Needs Attention',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  // 4. Priority Deliverables & Commitments
+                  AppSectionHeader(
+                    title: 'Priority Commitments',
+                    actionLabel: 'View All',
+                    onAction: () {
+                      AppHaptics.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CommitmentsScreen(),
                         ),
-                      ),
-                      if (_urgentCommitments.isNotEmpty)
-                        Text(
-                          '${_urgentCommitments.length} pending',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                    ],
+                      ).then((_) => _loadDashboardData());
+                    },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
 
                   if (_urgentCommitments.isEmpty)
-                    Card(
-                      elevation: 0,
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle_outline, color: Colors.green),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'You are all caught up! No overdue or due-today commitments.',
-                              ),
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.lg,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: isDark
+                                ? AppColors.semanticGreenDark
+                                : AppColors.semanticGreen,
+                            size: 22,
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'All caught up today',
+                                  style: TextStyle(
+                                    color: primaryText,
+                                    fontSize: AppTypography.secondarySize,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'No pending promises due right now.',
+                                  style: TextStyle(
+                                    color: secondaryText,
+                                    fontSize: AppTypography.captionSize,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     )
                   else
-                    ..._urgentCommitments.map((c) => _buildCommitmentTile(c, theme)),
-
-                  const SizedBox(height: 24),
-
-                  // Today's Reminders Section
-                  Text(
-                    "Today's Reminders",
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < _urgentCommitments.length; i++) ...[
+                            _CommitmentRow(
+                              commitment: _urgentCommitments[i],
+                              onTap: () async {
+                                AppHaptics.lightImpact();
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CommitmentDetailScreen(
+                                      commitmentId: _urgentCommitments[i].id!,
+                                    ),
+                                  ),
+                                );
+                                _loadDashboardData();
+                              },
+                            ),
+                            if (i < _urgentCommitments.length - 1)
+                              const Divider(height: 1),
+                          ],
+                        ],
+                      ),
                     ),
+                  const SizedBox(height: AppSpacing.xl),
+
+                  // 5. Today's Scheduled Reminders
+                  AppSectionHeader(
+                    title: "Today's Alerts",
+                    actionLabel: '+ New Alert',
+                    onAction: () async {
+                      AppHaptics.lightImpact();
+                      final res = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ReminderFormScreen(),
+                        ),
+                      );
+                      if (res != null) {
+                        await _db.insertReminder(res);
+                        _loadDashboardData();
+                      }
+                    },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
 
                   if (_todayReminders.isEmpty)
-                    Card(
-                      elevation: 0,
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('No reminders scheduled for today.'),
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.notifications_none_rounded,
+                            color: secondaryText,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Text(
+                              'No reminder alerts scheduled for the rest of today.',
+                              style: TextStyle(
+                                color: secondaryText,
+                                fontSize: AppTypography.captionSize,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   else
-                    ..._todayReminders.map((r) => _buildReminderTile(r, theme)),
-
-                  const SizedBox(height: 80),
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < _todayReminders.length; i++) ...[
+                            _ReminderRow(
+                              reminder: _todayReminders[i],
+                              onComplete: () async {
+                                AppHaptics.success();
+                                final updated = _todayReminders[i]
+                                    .copyWith(status: ReminderStatus.completed);
+                                await _db.updateReminder(updated);
+                                _loadDashboardData();
+                              },
+                            ),
+                            if (i < _todayReminders.length - 1)
+                              const Divider(height: 1),
+                          ],
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAiCapture,
-        icon: const Icon(Icons.auto_awesome),
-        label: const Text('AI Capture'),
-      ),
-    );
-  }
-
-  Future<void> _openAiCapture() async {
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => const AiCaptureSheet(),
-    );
-    if (saved == true) {
-      _loadDashboardData();
-    }
-  }
-
-  Widget _buildCommitmentTile(Commitment c, ThemeData theme) {
-    final dateFormat = DateFormat('MMM d, h:mm a');
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(
-          c.isOverdue ? Icons.error_outline : Icons.schedule,
-          color: c.isOverdue ? theme.colorScheme.error : theme.colorScheme.primary,
-        ),
-        title: Text(
-          c.title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          [
-            c.type.label,
-            if (c.contactName != null) c.contactName!,
-            if (c.dueDate != null) dateFormat.format(c.dueDate!),
-          ].join(' · '),
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CommitmentDetailScreen(commitmentId: c.id!),
-            ),
-          );
-          _loadDashboardData();
-        },
-      ),
-    );
-  }
-
-  Widget _buildReminderTile(Reminder r, ThemeData theme) {
-    final timeFormat = DateFormat('h:mm a');
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(
-          Icons.alarm,
-          color: r.isPastDue ? theme.colorScheme.error : theme.colorScheme.secondary,
-        ),
-        title: Text(r.title),
-        subtitle: Text('Due at ${timeFormat.format(r.remindAt)}'),
-      ),
     );
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  final IconData icon;
+class _MetricColumn extends StatelessWidget {
   final int count;
   final String label;
   final Color color;
 
-  const _MetricCard({
-    required this.icon,
+  const _MetricColumn({
     required this.count,
     required this.label,
     required this.color,
@@ -740,33 +590,128 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Column(
+      children: [
+        Text(
+          '$count',
+          style: TextStyle(
+            color: color,
+            fontSize: AppTypography.titleSize,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkTextSecondary
+                : AppColors.lightTextSecondary,
+            fontSize: AppTypography.captionSize,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 1,
+      height: 28,
+      color: isDark ? AppColors.darkHairline : AppColors.lightHairline,
+    );
+  }
+}
+
+class _CommitmentRow extends StatelessWidget {
+  final Commitment commitment;
+  final VoidCallback onTap;
+
+  const _CommitmentRow({
+    required this.commitment,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final primaryText =
+        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final secondaryText =
+        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+    AppBadge badge;
+    if (commitment.isOverdue) {
+      badge = AppBadge.overdue(isSmall: true);
+    } else if (commitment.type == CommitmentType.promiseMade) {
+      badge = const AppBadge(
+        label: 'Promised',
+        variant: AppBadgeVariant.accent,
+        isSmall: true,
+      );
+    } else if (commitment.type == CommitmentType.promiseReceived) {
+      badge = const AppBadge(
+        label: 'Expecting',
+        variant: AppBadgeVariant.neutral,
+        isSmall: true,
+      );
+    } else {
+      badge = const AppBadge(
+        label: 'Task',
+        variant: AppBadgeVariant.neutral,
+        isSmall: true,
+      );
+    }
+
+    final dateLabel = commitment.dueDate != null
+        ? DateFormat('EEE · h:mm a').format(commitment.dueDate!)
+        : 'Upcoming';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.cardRadius,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 24),
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    commitment.title,
+                    style: TextStyle(
+                      color: primaryText,
+                      fontSize: AppTypography.bodySize,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 3),
+                  Text(
+                    commitment.contactName != null
+                        ? '${commitment.contactName} · $dateLabel'
+                        : dateLabel,
+                    style: TextStyle(
+                      color: secondaryText,
+                      fontSize: AppTypography.captionSize,
+                    ),
                   ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
+            badge,
           ],
         ),
       ),
@@ -774,26 +719,60 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _ToolPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+class _ReminderRow extends StatelessWidget {
+  final Reminder reminder;
+  final VoidCallback onComplete;
 
-  const _ToolPill({
-    required this.icon,
-    required this.label,
-    required this.onTap,
+  const _ReminderRow({
+    required this.reminder,
+    required this.onComplete,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final primaryText =
+        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final secondaryText =
+        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        avatar: Icon(icon, size: 18, color: theme.colorScheme.primary),
-        label: Text(label),
-        onPressed: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.circle_outlined, size: 20),
+            color: isDark ? AppColors.darkTextTertiary : AppColors.lightTextTertiary,
+            tooltip: 'Mark Complete',
+            onPressed: onComplete,
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  reminder.title,
+                  style: TextStyle(
+                    color: primaryText,
+                    fontSize: AppTypography.secondarySize,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  DateFormat('h:mm a').format(reminder.remindAt),
+                  style: TextStyle(
+                    color: secondaryText,
+                    fontSize: AppTypography.captionSize,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
