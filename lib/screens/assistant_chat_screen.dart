@@ -83,7 +83,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             _messages.add(
               _ChatMessage(
                 text:
-                    'Hello! I am RemembrAI, your personal AI companion. Ask me anything about your contacts, commitments, or schedule — or just chat naturally.',
+                    'Hello! I am Dummy., your personal AI companion. Ask me anything about your contacts, commitments, or schedule — or just chat naturally.',
                 isUser: false,
                 suggestedNextActions: _sampleQuestions,
               ),
@@ -99,7 +99,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
           _messages.add(
             _ChatMessage(
               text:
-                  'Hello! I am RemembrAI, your personal AI companion. Ask me anything about your contacts, commitments, or schedule — or just chat naturally.',
+                  'Hello! I am Dummy., your personal AI companion. Ask me anything about your contacts, commitments, or schedule — or just chat naturally.',
               isUser: false,
               suggestedNextActions: _sampleQuestions,
             ),
@@ -300,7 +300,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
         _messages.add(
           _ChatMessage(
             text:
-                'Hello! I am RemembrAI, your personal AI companion. How can I help you right now?',
+                'Hello! I am Dummy., your personal AI companion. How can I help you right now?',
             isUser: false,
             suggestedNextActions: _sampleQuestions,
           ),
@@ -327,7 +327,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
               child: const Icon(Icons.psychology_rounded, size: 18, color: AppColors.primary),
             ),
             const SizedBox(width: AppSpacing.xs),
-            const Text('RemembrAI Companion', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const Text('Dummy.', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ],
         ),
         actions: [

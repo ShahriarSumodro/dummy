@@ -176,7 +176,7 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
                     autofocus: true,
                     style: const TextStyle(fontSize: 14),
                     decoration: const InputDecoration(
-                      labelText: 'What do you want RemembrAI to remember?',
+                      labelText: 'What do you want Dummy. to remember?',
                       hintText: 'e.g. Karim prefers dark roast coffee without sugar; MVP launch date is late November.',
                       border: OutlineInputBorder(),
                       alignLabelWithHint: true,
@@ -247,7 +247,7 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Memory?'),
-        content: Text('Are you sure you want RemembrAI to forget:\n"${memory.content}"?'),
+        content: Text('Are you sure you want Dummy. to forget:\n"${memory.content}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -396,7 +396,7 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Text(
-                                'Tell RemembrAI facts, preferences, project updates, or personal habits in conversation, or tap + to record one.',
+                                'Tell Dummy. facts, preferences, project updates, or personal habits in conversation, or tap + to record one.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: AppTypography.captionSize,

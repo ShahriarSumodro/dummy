@@ -1,4 +1,4 @@
-# RemembrAI — Decision Log
+# Dummy. — Decision Log
 
 All architectural, product, and technical decisions are recorded here.
 
@@ -33,12 +33,12 @@ All architectural, product, and technical decisions are recorded here.
 
 ---
 
-## DEC-003: App Name — RemembrAI
+## DEC-003: App Name — Dummy.
 
 **Date:** 2024-11-13  
-**Decision:** Working name is "RemembrAI".  
-**Rationale:** Combines "Remember" + "AI". Memorable, descriptive, available to change later.  
-**Status:** Working name (not final)
+**Decision:** Working name is "Dummy.".  
+**Rationale:** User-designated name.  
+**Status:** Confirmed
 
 ---
 

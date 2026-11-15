@@ -1,7 +1,7 @@
-# RemembrAI Design System & UX Architecture Notes
+# Dummy. Design System & UX Architecture Notes
 
 ## 1. Executive Summary & Design Philosophy
-RemembrAI has undergone a complete UI/UX transformation from a basic Material utility into an executive-grade Personal Business Memory and Execution Assistant, matching the aesthetic, typography, and tactile precision of industry standards like **Linear**, **Things 3**, **Notion Calendar**, and **Arc Mobile**.
+Dummy. has undergone a complete UI/UX transformation from a basic Material utility into an executive-grade Personal Business Memory and Execution Assistant, matching the aesthetic, typography, and tactile precision of industry standards like **Linear**, **Things 3**, **Notion Calendar**, and **Arc Mobile**.
 
 ### Core Tenets
 1. **Calm, High-Contrast Minimalism**: The interface steps back so executive commitments and relationships command full focus. Content is framed by clean monochromatic surfaces, hairline borders (`0.5pt`), and deliberate indigo accenting (`#3B4CCA` light / `#4F62E2` dark).
@@ -69,7 +69,7 @@ RemembrAI has undergone a complete UI/UX transformation from a basic Material ut
 ## 4. Navigation Architecture
 
 ### 4.1 Suspended Floating Pill Bar (`lib/screens/shell_screen.dart`)
-- Instead of a traditional edge-to-edge system navigation bar, RemembrAI floats a suspended pill navigation bar (`32pt` radius, floating ambient shadow) above the content canvas.
+- Instead of a traditional edge-to-edge system navigation bar, Dummy. floats a suspended pill navigation bar (`32pt` radius, floating ambient shadow) above the content canvas.
 - 4 Primary Tabs:
   1. **Home**: Executive agenda, audio daily briefing hero card, overdue alerts, and today deliverables.
   2. **Promises**: Filterable commitment list (All, Pending, Completed, Cancelled) and direction pills (Promised by Me, Expecting, Follow-ups, Tasks).

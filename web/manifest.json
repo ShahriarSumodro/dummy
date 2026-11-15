@@ -1,11 +1,11 @@
 {
-    "name": "RemembrAI",
-    "short_name": "RemembrAI",
+    "name": "Dummy.",
+    "short_name": "Dummy.",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "RemembrAI — Your Personal AI Companion",
+    "description": "Dummy. — Your Personal AI Companion",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -16,12 +16,12 @@ class NotificationService {
   bool _initialized = false;
   Function(String?)? onNotificationTapped;
 
-  static const String channelIdReminders = 'remembrai_reminders';
+  static const String channelIdReminders = 'dummy_reminders';
   static const String channelNameReminders = 'Commitments & Reminders';
   static const String channelDescReminders =
       'Notifications for upcoming commitments, deliverables, and promises.';
 
-  static const String channelIdBriefing = 'remembrai_briefings';
+  static const String channelIdBriefing = 'dummy_briefings';
   static const String channelNameBriefing = 'Daily Intelligence Briefings';
   static const String channelDescBriefing =
       'Morning agenda, pending follow-ups, and relationship health summaries.';
@@ -242,7 +242,7 @@ class NotificationService {
   Future<void> showTestNotification() async {
     await showNotification(
       id: 9999,
-      title: '🔔 RemembrAI Active',
+      title: '🔔 Dummy. Active',
       body: 'Push notifications are connected! Your business commitments & follow-ups will alert you right on schedule.',
       payload: 'test_notification',
     );

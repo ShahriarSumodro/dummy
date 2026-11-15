@@ -12,7 +12,7 @@ enum AssistantTone {
   const AssistantTone(this.label, this.description);
 }
 
-/// Preferred communication language for RemembrAI responses.
+/// Preferred communication language for Dummy. responses.
 enum AssistantLanguage {
   english('English', 'Respond strictly in English'),
   bangla('বাংলা', 'বাংলা ভাষায় সম্পূর্ণ উত্তর দিন'),
@@ -106,7 +106,7 @@ class AssistantSettings {
         buffer.writeln('- TONE: Analytical, structured, thorough. Categorize observations and assess commitment risks.');
         break;
       case AssistantTone.companion:
-        buffer.writeln('- TONE: RemembrAI Companion. Warm, thoughtful, balanced humor, and executive dependability.');
+        buffer.writeln('- TONE: Dummy. Companion. Warm, thoughtful, balanced humor, and executive dependability.');
         break;
     }
 

@@ -124,7 +124,7 @@ class _RelationshipHealthScreenState extends State<RelationshipHealthScreen> {
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
-                              'RemembrAI monitors your interactions and alerts you when relationships risk going cold.',
+                              'Dummy. monitors your interactions and alerts you when relationships risk going cold.',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,

@@ -1,7 +1,7 @@
-# RemembrAI — System Architecture
+# Dummy. — System Architecture
 
 ## Architecture Overview
-RemembrAI is built as an offline-first, modular mobile application using Flutter and SQLite.
+Dummy. is built as an offline-first, modular mobile application using Flutter and SQLite.
 
 ```
 ┌────────────────────────────────────────────────────────┐

@@ -22,14 +22,14 @@ void main() {
 
   testWidgets('App shell renders with bottom navigation',
       (WidgetTester tester) async {
-    await tester.pumpWidget(const RemembrAIApp());
+    await tester.pumpWidget(const DummyApp());
     for (int i = 0; i < 10; i++) {
       await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
 
     // Verify the app title is shown
-    expect(find.text('RemembrAI'), findsWidgets);
+    expect(find.text('Dummy.'), findsWidgets);
 
     // Verify all 4 navigation tabs exist
     expect(find.text('Home'), findsOneWidget);
@@ -42,7 +42,7 @@ void main() {
   });
 
   testWidgets('Bottom navigation switches tabs', (WidgetTester tester) async {
-    await tester.pumpWidget(const RemembrAIApp());
+    await tester.pumpWidget(const DummyApp());
     for (int i = 0; i < 5; i++) {
       await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
@@ -78,6 +78,6 @@ void main() {
       await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
-    expect(find.text('RemembrAI'), findsWidgets);
+    expect(find.text('Dummy.'), findsWidgets);
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -60,7 +61,13 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     final documentsDir = await getApplicationDocumentsDirectory();
-    final dbPath = join(documentsDir.path, 'remembrai.db');
+    final dbPath = join(documentsDir.path, 'dummy.db');
+    final legacyPath = join(documentsDir.path, 'remembrai.db');
+    if (!await File(dbPath).exists() && await File(legacyPath).exists()) {
+      try {
+        await File(legacyPath).copy(dbPath);
+      } catch (_) {}
+    }
 
     return await openDatabase(
       dbPath,
@@ -1162,6 +1169,7 @@ class DatabaseService {
     final meetings = await getAllMeetings();
     final drafts = await getAllActionDrafts();
     final memories = await getAllMemories();
+    final chats = await getChatMessages(limit: 500);
 
     return {
       'exported_at': DateTime.now().toIso8601String(),
@@ -1173,6 +1181,7 @@ class DatabaseService {
       'meetings': meetings.map((m) => m.toMap()).toList(),
       'action_drafts': drafts.map((d) => d.toMap()).toList(),
       'memories': memories.map((m) => m.toMap()).toList(),
+      'chat_messages': chats,
     };
   }
 
@@ -1392,6 +1401,18 @@ class DatabaseService {
         for (final item in json['memories'] as List) {
           await txn.insert(
             'memories',
+            item as Map<String, dynamic>,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          importedRecords++;
+        }
+      }
+
+      // 8. Companion Chat History
+      if (json['chat_messages'] is List) {
+        for (final item in json['chat_messages'] as List) {
+          await txn.insert(
+            'chat_messages',
             item as Map<String, dynamic>,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );

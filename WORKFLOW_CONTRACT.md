@@ -1,4 +1,4 @@
-# RemembrAI Workflow Contract
+# Dummy. Workflow Contract
 
 > **Contract Rule**: All data models, database tables, CRUD flows, state transitions, confirmation gates, permission layers, and notification services defined in this document MUST be preserved exactly throughout the UI redesign. No functionality may be deleted or broken.
 

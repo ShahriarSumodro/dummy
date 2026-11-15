@@ -189,14 +189,14 @@ void main() {
       expect(nightRes.answer, contains('clarity comes with rest'));
     });
 
-    test('Default RemembrAI Companion delivers warm, balanced executive follow-through', () async {
+    test('Default Dummy. Companion delivers warm, balanced executive follow-through', () async {
       await db.saveAssistantSettings(const AssistantSettings(
         personality: PersonalityProfile.companion,
         tone: AssistantTone.companion,
       ));
 
       final greetingRes = await queryService.queryMemory('hello');
-      expect(greetingRes.answer, contains('RemembrAI, your personal companion'));
+      expect(greetingRes.answer, contains('Dummy., your personal companion'));
       expect(greetingRes.answer, contains('Always right here beside you'));
 
       final nightRes = await queryService.queryMemory('I have been working late on this for hours');

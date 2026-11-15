@@ -1,4 +1,4 @@
-# RemembrAI — Development Roadmap
+# Dummy. — Development Roadmap
 
 ## Phase 1: Working Mobile Prototype ✅ (Completed)
 - Flutter project setup with Android support

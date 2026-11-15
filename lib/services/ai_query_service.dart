@@ -96,7 +96,7 @@ class AiQueryService {
     );
 
     final systemPrompt = '''
-You are RemembrAI, the user's Personal AI Companion and personal business memory assistant.
+You are Dummy., the user's Personal AI Companion and personal business memory assistant.
 You carry all of the user's follow-throughs, remember the people, conversations, promises, and responsibilities in their life, and are always there for a natural conversation.
 
 GROUNDED BUSINESS & PERSONAL CONTEXT:
@@ -197,7 +197,7 @@ BEHAVIOR DIRECTIVES:
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
 
     final systemPrompt = '''
-You are RemembrAI, the user's Personal AI Companion and personal business memory assistant.
+You are Dummy., the user's Personal AI Companion and personal business memory assistant.
 You carry all of the user's follow-throughs, remember the people, conversations, promises, and responsibilities in their life, and are always there for a natural conversation.
 
 GROUNDED BUSINESS & PERSONAL CONTEXT:
@@ -372,16 +372,16 @@ BEHAVIOR DIRECTIVES:
       final pendingCount = commitments.where((c) => c.status.name == 'pending').length;
 
       final greeting = isBangla
-          ? 'হ্যালো! আমি রেমেমব্রাই (RemembrAI), আপনার সার্বক্ষণিক পার্সোনাল কম্প্যানিয়ন। ${overdueCount > 0 ? 'আপনার $overdueCountটি অপেক্ষমাণ প্রতিশ্রুতি আছে।' : 'সবকিছু নিয়মে চলছে।'} আজ আপনাকে কীভাবে সাহায্য করতে পারি?'
+          ? 'হ্যালো! আমি ডামি (Dummy.), আপনার সার্বক্ষণিক পার্সোনাল কম্প্যানিয়ন। ${overdueCount > 0 ? 'আপনার $overdueCountটি অপেক্ষমাণ প্রতিশ্রুতি আছে।' : 'সবকিছু নিয়মে চলছে।'} আজ আপনাকে কীভাবে সাহায্য করতে পারি?'
           : (isBanglish
-              ? 'Hey! Ami RemembrAI, apnar personal companion. Kemon cholche shob? Ki help lagbe bolun.'
+              ? 'Hey! Ami Dummy., apnar personal companion. Kemon cholche shob? Ki help lagbe bolun.'
               : (isChiefOfStaff
                   ? 'Good day. Executive Chief of Staff active. ${overdueCount > 0 ? "Alert: $overdueCount overdue commitments require immediate attention." : "All systems and commitments are currently on track."} Ready for your command.'
                   : (isCalmMentor
                       ? 'Hello. Peace to your day. ${overdueCount > 0 ? "A gentle reminder that $overdueCount commitments await your care." : "Everything is in balance."} How can I assist your thoughts and schedule?'
                       : (isCasualPartner
                           ? 'Hey! What’s happening? ${overdueCount > 0 ? "Heads up, we’ve got $overdueCount overdue things to tackle." : "All quiet on the radar."} What are we working on?'
-                          : 'Hello! I’m RemembrAI, your personal companion. Always right here beside you. ${overdueCount > 0 ? "You have $overdueCount overdue promise needing attention." : "All follow-throughs are in order."} What’s on your mind?'))));
+                          : 'Hello! I’m Dummy., your personal companion. Always right here beside you. ${overdueCount > 0 ? "You have $overdueCount overdue promise needing attention." : "All follow-throughs are in order."} What’s on your mind?'))));
 
       return AssistantQueryResponse(
         answer: greeting,
@@ -411,14 +411,14 @@ BEHAVIOR DIRECTIVES:
     // E. Identity & Capability (Master Doc Section 1.3)
     if (q.contains('who are you') || q.contains('what are you') || q.contains('tumi ke')) {
       final responseText = isBangla
-          ? 'আমি রেমেমব্রাই (RemembrAI) — আপনার সার্বক্ষণিক পার্সোনাল এআই কম্প্যানিয়ন। আমি আপনার জীবনের মানুষজন, কথোপকথন, প্রতিশ্রুতি ও দায়িত্ব মনে রাখি এবং সেগুলো বাস্তবায়ন করতে সাহায্য করি।'
+          ? 'আমি ডামি (Dummy.) — আপনার সার্বক্ষণিক পার্সোনাল এআই কম্প্যানিয়ন। আমি আপনার জীবনের মানুষজন, কথোপকথন, প্রতিশ্রুতি ও দায়িত্ব মনে রাখি এবং সেগুলো বাস্তবায়ন করতে সাহায্য করি।'
           : (isChiefOfStaff
-              ? 'I am your Executive Chief of Staff via RemembrAI. I track all deliverables, meetings, deadlines, and commitments with zero fluff.'
+              ? 'I am your Executive Chief of Staff via Dummy.. I track all deliverables, meetings, deadlines, and commitments with zero fluff.'
               : (isCalmMentor
-                  ? 'I am your Calm Mentor on RemembrAI. I help you cultivate thoughtful follow-through, balance, and clear perspective across your commitments.'
+                  ? 'I am your Calm Mentor on Dummy.. I help you cultivate thoughtful follow-through, balance, and clear perspective across your commitments.'
                   : (isCasualPartner
-                      ? 'I’m your Casual Creative Partner on RemembrAI! Your brainstorming co-pilot and follow-through wingman.'
-                      : 'I am RemembrAI — your Personal AI Companion. I carry all your follow-throughs, remember the people, conversations, promises, and responsibilities in your life, and I am always right here for natural conversation whenever you need.')));
+                      ? 'I’m your Casual Creative Partner on Dummy.! Your brainstorming co-pilot and follow-through wingman.'
+                      : 'I am Dummy. — your Personal AI Companion. I carry all your follow-throughs, remember the people, conversations, promises, and responsibilities in your life, and I am always right here for natural conversation whenever you need.')));
 
       return AssistantQueryResponse(
         answer: responseText,

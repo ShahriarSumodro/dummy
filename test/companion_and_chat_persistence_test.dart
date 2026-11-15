@@ -53,7 +53,7 @@ void main() {
 
     test('clearChatMessages wipes messages without affecting contacts or commitments', () async {
       await db.insertContact(Contact(name: 'Rahim Ahmed', email: 'rahim@example.com'));
-      await db.insertChatMessage(text: 'Hello RemembrAI', isUser: true);
+      await db.insertChatMessage(text: 'Hello Dummy.', isUser: true);
 
       expect((await db.getChatMessages()).length, equals(1));
       expect((await db.getAllContacts()).length, equals(1));
@@ -99,17 +99,17 @@ void main() {
       ));
     });
 
-    test('Casual Intent: Greeting recognizes RemembrAI identity and companion warmth', () async {
+    test('Casual Intent: Greeting recognizes Dummy. identity and companion warmth', () async {
       final response = await queryService.queryMemory("Hello");
 
-      expect(response.answer, contains('RemembrAI'));
+      expect(response.answer, contains('Dummy.'));
       expect(response.answer.toLowerCase(), contains('companion'));
     });
 
     test('Casual Intent: Identity inquiry states Master Product identity', () async {
       final response = await queryService.queryMemory("Who are you?");
 
-      expect(response.answer, contains('RemembrAI'));
+      expect(response.answer, contains('Dummy.'));
       expect(response.answer, contains('Personal AI Companion'));
       expect(response.answer, contains('follow-throughs'));
     });

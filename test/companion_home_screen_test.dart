@@ -45,21 +45,21 @@ void main() {
       for (int i = 0; i < 30; i++) {
         await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
         await tester.pump();
-        if (find.text('RemembrAI').evaluate().isNotEmpty &&
+        if (find.text('Dummy.').evaluate().isNotEmpty &&
             find.byType(TextField).evaluate().isNotEmpty) {
           break;
         }
       }
 
-      // 1. Verify AppBar title is RemembrAI
-      expect(find.text('RemembrAI'), findsOneWidget);
+      // 1. Verify AppBar title is Dummy.
+      expect(find.text('Dummy.'), findsOneWidget);
 
       // 2. Verify Presence Header contains companion status
       expect(find.textContaining('Your companion is active'), findsOneWidget);
 
       // 3. Verify Quick Conversational Input Bar is present
       expect(
-        find.text('Talk to RemembrAI or log a follow-up...'),
+        find.text('Talk to Dummy. or log a follow-up...'),
         findsOneWidget,
       );
       expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);

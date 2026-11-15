@@ -112,7 +112,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'RemembrAI can merge secondary contact information, promises, and interactions into the primary contact.',
+            'Dummy. can merge secondary contact information, promises, and interactions into the primary contact.',
             style: TextStyle(
               fontSize: 13,
               color: AppColors.muted(context),

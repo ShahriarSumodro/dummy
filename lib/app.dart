@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'screens/shell_screen.dart';
 
-class RemembrAIApp extends StatelessWidget {
-  const RemembrAIApp({super.key});
+class DummyApp extends StatelessWidget {
+  const DummyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RemembrAI',
+      title: 'Dummy.',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
@@ -17,5 +17,3 @@ class RemembrAIApp extends StatelessWidget {
     );
   }
 }
-
-typedef DummyApp = RemembrAIApp;

@@ -1,4 +1,4 @@
-/// Represents a structured personality profile for RemembrAI (Module 10 & Section 6).
+/// Represents a structured personality profile for Dummy. (Module 10 & Section 6).
 ///
 /// Modulates conversational tone, humor, formality, brevity, and proactivity
 /// WITHOUT altering stored personal memory, permissions, or core business logic.
@@ -38,7 +38,7 @@ class PersonalityProfile {
   /// Pre-configured Archetypes (Master Spec Module 10)
   static const companion = PersonalityProfile(
     id: 'companion',
-    name: 'RemembrAI Companion',
+    name: 'Dummy. Companion',
     tagline: 'Warm, thoughtful, dependable follow-through',
     description:
         'The default companion voice. Balances natural camaraderie and wit with executive dependability.',
@@ -143,7 +143,7 @@ class PersonalityProfile {
   factory PersonalityProfile.fromMap(Map<String, dynamic> map) {
     return PersonalityProfile(
       id: map['id'] as String? ?? 'companion',
-      name: map['name'] as String? ?? 'RemembrAI Companion',
+      name: map['name'] as String? ?? 'Dummy. Companion',
       tagline: map['tagline'] as String? ?? '',
       description: map['description'] as String? ?? '',
       formality: (map['formality'] as num?)?.toDouble() ?? 3.0,

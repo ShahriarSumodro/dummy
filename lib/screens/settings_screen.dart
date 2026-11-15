@@ -696,7 +696,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onPressed: () {
                                 AppHaptics.lightImpact();
                                 VoiceService().speak(
-                                  'Hello! I am RemembrAI, your personal AI companion. Your system is operational and ready.',
+                                  'Hello! I am Dummy., your personal AI companion. Your system is operational and ready.',
                                 );
                               },
                             ),
@@ -817,7 +817,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Version Stamp
                 Center(
                   child: Text(
-                    'RemembrAI v0.1.0 · Personal AI Companion',
+                    'Dummy. v0.1.0 · Personal AI Companion',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.muted(context),

@@ -204,7 +204,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'RemembrAI is built privacy-first. All your contacts, promises, meeting notes, and reminders reside in an SQLite database on your device. No cloud sync is active without your explicit instruction.',
+                  'Dummy. is built privacy-first. All your contacts, promises, meeting notes, and reminders reside in an SQLite database on your device. No cloud sync is active without your explicit instruction.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.5,

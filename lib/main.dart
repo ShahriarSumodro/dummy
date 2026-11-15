@@ -27,5 +27,5 @@ void main() async {
     debugPrint('Voice init exception: $e');
   }
 
-  runApp(const RemembrAIApp());
+  runApp(const DummyApp());
 }

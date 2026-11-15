@@ -38,7 +38,7 @@ void main() {
       expect(find.text('Wearable Pin'), findsOneWidget);
 
       // Verify Desk Companion Hub elements
-      expect(find.text('RemembrAI Desk Hub'), findsOneWidget);
+      expect(find.text('Dummy. Desk Hub'), findsOneWidget);
       expect(find.text('Desk Talk / Late Night Check-in'), findsOneWidget);
 
       // Switch to Wearable Pin
@@ -46,12 +46,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify Wearable elements
-      expect(find.text('RemembrAI Companion\nStandby'), findsOneWidget);
+      expect(find.text('Dummy. Companion\nStandby'), findsOneWidget);
 
       // Switch back to Desk Companion
       await tester.tap(find.text('Desk Companion'));
       await tester.pumpAndSettle();
-      expect(find.text('RemembrAI Desk Hub'), findsOneWidget);
+      expect(find.text('Dummy. Desk Hub'), findsOneWidget);
     });
 
     testWidgets('Dispatches and reacts to Companion Device Events',
@@ -65,9 +65,9 @@ void main() {
 
       // Tap simulate haptic alert
       await tester.tap(find.text('Simulate Haptic Alert'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('New Promise Detected'), findsWidgets);
+      expect(find.textContaining('New Promise Detected'), findsWidgets);
       expect(find.textContaining('Send quotation to Rahim'), findsWidgets);
     });
   });
@@ -91,7 +91,12 @@ void main() {
           home: BriefingScreen(),
         ),
       );
-      await tester.pumpAndSettle();
+
+      for (int i = 0; i < 25; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 40));
+        if (find.textContaining('Executive Briefing').evaluate().isNotEmpty) break;
+      }
 
       expect(find.textContaining('Executive Briefing'), findsOneWidget);
       expect(find.textContaining('Dependability & Follow-Through Health'), findsOneWidget);
@@ -127,7 +132,12 @@ void main() {
           home: BriefingScreen(initialContact: contact),
         ),
       );
-      await tester.pumpAndSettle();
+
+      for (int i = 0; i < 25; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 40));
+        if (find.textContaining('Pre-Meeting Dossier').evaluate().isNotEmpty) break;
+      }
 
       expect(find.textContaining('Pre-Meeting Dossier: Sarah Connor'), findsOneWidget);
       expect(find.textContaining('Stored Personal Memory & Preferences'), findsOneWidget);

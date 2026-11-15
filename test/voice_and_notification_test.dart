@@ -20,7 +20,7 @@ void main() {
 ### Executive Briefing
 Here is the summary:
 - **Karim**: Prominded to deliver `draft_invoice.pdf` by *tomorrow*.
-- [Click here](https://remembrai.app) to review.
+- [Click here](https://dummy.app) to review.
 ```dart
 void test() {}
 ```
@@ -33,7 +33,7 @@ void test() {}
       expect(cleaned.contains('**'), isFalse);
       expect(cleaned.contains('*tomorrow*'), isFalse);
       expect(cleaned.contains('`'), isFalse);
-      expect(cleaned.contains('https://remembrai.app'), isFalse);
+      expect(cleaned.contains('https://dummy.app'), isFalse);
       expect(cleaned.contains('void test'), isFalse);
 
       // Should retain spoken content
@@ -56,8 +56,8 @@ void test() {}
       final service2 = NotificationService();
       expect(identical(service1, service2), isTrue);
 
-      expect(NotificationService.channelIdReminders, equals('remembrai_reminders'));
-      expect(NotificationService.channelIdBriefing, equals('remembrai_briefings'));
+      expect(NotificationService.channelIdReminders, equals('dummy_reminders'));
+      expect(NotificationService.channelIdBriefing, equals('dummy_briefings'));
     });
   });
 

@@ -205,7 +205,7 @@ class GroqAiService implements AiService {
 
     final systemInstruction =
         '''
-You are RemembrAI, the user's personal AI companion and executive memory assistant.
+You are Dummy., the user's personal AI companion and executive memory assistant.
 Analyze user notes or conversation transcripts to extract commitments, promises, contacts, and reminders.
 
 Rules:
@@ -380,7 +380,7 @@ class GeminiAiService implements AiService {
 
     final systemInstruction =
         '''
-You are RemembrAI, the user's personal AI companion and executive memory assistant.
+You are Dummy., the user's personal AI companion and executive memory assistant.
 Analyze user notes or conversation transcripts to extract commitments, promises, contacts, and reminders.
 
 Rules:
