@@ -17,6 +17,7 @@ import 'settings_screen.dart';
 import 'assistant_chat_screen.dart';
 import 'global_search_screen.dart';
 import 'voice_capture_screen.dart';
+import 'analytics_screen.dart';
 
 /// Redesigned Executive Home & Assistant Dashboard.
 /// Follows strict Linear/Things design aesthetics:
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _todayCount = 0;
   int _upcomingRemindersCount = 0;
   int _contactsCount = 0;
+  int _sayDoRatio = 100;
 
   List<Commitment> _urgentCommitments = [];
   List<Reminder> _todayReminders = [];
@@ -65,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final today = await _db.countTodayCommitments();
       final upcoming = await _db.countUpcomingReminders();
       final contacts = await _db.countContacts();
+      final sayDo = await _db.getSayDoAnalytics();
+      final ratio = (sayDo['sayDoRatio'] as double? ?? 100.0).round();
 
       final allCommitments =
           await _db.getAllCommitments(statusFilter: 'pending');
@@ -89,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _todayCount = today;
           _upcomingRemindersCount = upcoming;
           _contactsCount = contacts;
+          _sayDoRatio = ratio;
           _urgentCommitments = urgent;
           _todayReminders = todayRems;
           _loading = false;
@@ -601,6 +606,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         _Divider(),
                         _MetricColumn(
+                          displayValue: '$_sayDoRatio%',
+                          label: 'Say-Do',
+                          color: _sayDoRatio >= 80
+                              ? (isDark
+                                  ? AppColors.semanticGreenDark
+                                  : AppColors.semanticGreen)
+                              : (isDark
+                                  ? AppColors.semanticAmberDark
+                                  : AppColors.semanticAmber),
+                          onTap: () {
+                            AppHaptics.lightImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AnalyticsScreen(),
+                              ),
+                            ).then((_) => _loadDashboardData());
+                          },
+                        ),
+                        _Divider(),
+                        _MetricColumn(
                           count: _upcomingRemindersCount,
                           label: 'Alerts',
                           color: secondaryText,
@@ -780,21 +806,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _MetricColumn extends StatelessWidget {
   final int count;
+  final String? displayValue;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
   const _MetricColumn({
-    required this.count,
+    this.count = 0,
+    this.displayValue,
     required this.label,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       children: [
         Text(
-          '$count',
+          displayValue ?? '$count',
           style: TextStyle(
             color: color,
             fontSize: AppTypography.titleSize,
@@ -815,6 +845,18 @@ class _MetricColumn extends StatelessWidget {
         ),
       ],
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 }
 

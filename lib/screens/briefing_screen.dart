@@ -73,6 +73,19 @@ class _BriefingScreenState extends State<BriefingScreen> {
               m.meetingDate.day == now.day)
           .toList();
       final upcomingReminders = await _db.getAllReminders(statusFilter: 'pending');
+      final sayDo = await _db.getSayDoAnalytics();
+      final healthCheck = await _db.getRelationshipHealthCheck();
+
+      final sayDoRatio = sayDo['sayDoRatio'] as double? ?? 100.0;
+      final avgTurnaround = sayDo['avgTurnaroundDays'] as double? ?? 0.0;
+      buffer.writeln('### 📈 Dependability & Follow-Through Health');
+      buffer.writeln('• **Say-Do Ratio:** ${sayDoRatio.toStringAsFixed(0)}% (${sayDo['completedCount']} completed / ${sayDo['totalTracked']} tracked)');
+      buffer.writeln('• **Average Turnaround:** ${avgTurnaround.toStringAsFixed(1)} days');
+      final overdueContacts = healthCheck.where((h) => (h['overdue_commitments'] as int? ?? 0) > 0).take(3).toList();
+      if (overdueContacts.isNotEmpty) {
+        buffer.writeln('• **Touchpoints Needing Attention:** ${overdueContacts.map((c) => "${c['name']} (${c['overdue_commitments']} overdue)").join(', ')}');
+      }
+      buffer.writeln();
 
       buffer.writeln('### ⚠️ Priority Overdue Items (${overdueCommitments.length})');
       if (overdueCommitments.isEmpty) {
@@ -121,6 +134,15 @@ class _BriefingScreenState extends State<BriefingScreen> {
         if (contact.notes != null) {
           buffer.writeln('**Background Notes:** ${contact.notes}\n');
         } else {
+          buffer.writeln();
+        }
+
+        final memories = await _db.getAllMemories(contactId: contact.id);
+        if (memories.isNotEmpty) {
+          buffer.writeln('### 🧠 Stored Personal Memory & Preferences (${memories.length})');
+          for (final m in memories) {
+            buffer.writeln('• **[${m.category.label}]** ${m.content}');
+          }
           buffer.writeln();
         }
 
