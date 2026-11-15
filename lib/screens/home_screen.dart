@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/commitment.dart';
 import '../models/reminder.dart';
+import '../models/assistant_settings.dart';
+import '../models/personality_profile.dart';
 import '../services/database_service.dart';
 import '../services/voice_service.dart';
 import '../theme/design_tokens.dart';
@@ -14,6 +16,7 @@ import 'reminder_form_screen.dart';
 import 'settings_screen.dart';
 import 'assistant_chat_screen.dart';
 import 'global_search_screen.dart';
+import 'voice_capture_screen.dart';
 
 /// Redesigned Executive Home & Assistant Dashboard.
 /// Follows strict Linear/Things design aesthetics:
@@ -35,6 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Commitment> _urgentCommitments = [];
   List<Reminder> _todayReminders = [];
+  String _userTitle = '';
+  PersonalityProfile _personality = PersonalityProfile.companion;
+  final _quickChatController = TextEditingController();
   bool _loading = true;
 
   @override
@@ -45,12 +51,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    VoiceService().stop();
+    try {
+      VoiceService().stop();
+    } catch (_) {}
+    _quickChatController.dispose();
     super.dispose();
   }
 
   Future<void> _loadDashboardData() async {
     try {
+      final settings = await _db.getAssistantSettings();
       final overdue = await _db.countOverdueCommitments();
       final today = await _db.countTodayCommitments();
       final upcoming = await _db.countUpcomingReminders();
@@ -73,6 +83,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         setState(() {
+          _userTitle = settings.userTitle;
+          _personality = settings.personality;
           _overdueCount = overdue;
           _todayCount = today;
           _upcomingRemindersCount = upcoming;
@@ -85,6 +97,25 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _greetingText(String userTitle) {
+    final hour = DateTime.now().hour;
+    String prefix;
+    if (hour >= 5 && hour < 12) {
+      prefix = 'Good morning';
+    } else if (hour >= 12 && hour < 17) {
+      prefix = 'Good afternoon';
+    } else if (hour >= 17 && hour < 22) {
+      prefix = 'Good evening';
+    } else {
+      prefix = 'Late night session';
+    }
+
+    if (userTitle.trim().isNotEmpty) {
+      return '$prefix, ${userTitle.trim()}';
+    }
+    return prefix;
   }
 
   bool _isDueToday(DateTime? date) {
@@ -225,7 +256,177 @@ class _HomeScreenState extends State<HomeScreen> {
                   100, // Space for floating bottom bar
                 ),
                 children: [
-                  // 1. Spoken Executive Audio Briefing Module
+                  // 1. Companion Presence & Quick Conversational Bar (Section 15.3)
+                  AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: (isDark
+                                        ? AppColors.darkAccent
+                                        : AppColors.lightAccent)
+                                    .withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 18,
+                                color: isDark
+                                    ? AppColors.darkAccent
+                                    : AppColors.lightAccent,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _greetingText(_userTitle),
+                                    style: TextStyle(
+                                      color: primaryText,
+                                      fontSize: AppTypography.subtitleSize,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Your companion is active and tracking your day.',
+                                    style: TextStyle(
+                                      color: secondaryText,
+                                      fontSize: AppTypography.captionSize,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            AppBadge(
+                              label: _personality.name,
+                              variant: AppBadgeVariant.accent,
+                              isSmall: true,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+
+                        // Inline Conversational Bar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : AppColors.lightSurface,
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkHairline
+                                  : AppColors.lightHairline,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: AppSpacing.sm),
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 18,
+                                color: secondaryText,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: TextField(
+                                  controller: _quickChatController,
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        'Talk to RemembrAI or log a follow-up...',
+                                    hintStyle: TextStyle(
+                                      fontSize: 13,
+                                      color:
+                                          secondaryText.withValues(alpha: 0.8),
+                                    ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onSubmitted: (val) {
+                                    if (val.trim().isNotEmpty) {
+                                      final text = val.trim();
+                                      _quickChatController.clear();
+                                      AppHaptics.lightImpact();
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => AssistantChatScreen(
+                                            initialQuery: text,
+                                          ),
+                                        ),
+                                      ).then((_) => _loadDashboardData());
+                                    }
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.mic_none_rounded,
+                                  size: 20,
+                                ),
+                                color: isDark
+                                    ? AppColors.darkAccent
+                                    : AppColors.lightAccent,
+                                tooltip: 'Voice Note / Voice Chat',
+                                onPressed: () {
+                                  AppHaptics.lightImpact();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const VoiceCaptureScreen(),
+                                    ),
+                                  ).then((_) => _loadDashboardData());
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.send_rounded,
+                                  size: 18,
+                                ),
+                                color: isDark
+                                    ? AppColors.darkAccent
+                                    : AppColors.lightAccent,
+                                tooltip: 'Send',
+                                onPressed: () {
+                                  final text =
+                                      _quickChatController.text.trim();
+                                  if (text.isNotEmpty) {
+                                    _quickChatController.clear();
+                                    AppHaptics.lightImpact();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => AssistantChatScreen(
+                                          initialQuery: text,
+                                        ),
+                                      ),
+                                    ).then((_) => _loadDashboardData());
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // 2. Spoken Executive Audio Briefing Module
                   ValueListenableBuilder<TtsState>(
                     valueListenable: VoiceService().ttsState,
                     builder: (context, ttsState, _) {
