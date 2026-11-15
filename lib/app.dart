@@ -8,7 +8,7 @@ class RemembrAIApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RemembrAI',
+      title: 'Dummy.',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
@@ -17,3 +17,5 @@ class RemembrAIApp extends StatelessWidget {
     );
   }
 }
+
+typedef DummyApp = RemembrAIApp;

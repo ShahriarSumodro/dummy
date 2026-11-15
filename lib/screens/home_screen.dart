@@ -97,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _buildSpokenBriefingSummary() {
     final buffer = StringBuffer();
-    buffer.write('Good day. Here is your RemembrAI business memory briefing. ');
+    buffer.write('Good day. Here is your Dummy. business memory briefing. ');
     if (_overdueCount > 0) {
       buffer.write(
           'You have $_overdueCount overdue promise${_overdueCount > 1 ? 's' : ''} requiring attention. ');
@@ -156,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Row(
           children: [
             Text(
-              'RemembrAI',
+              'Dummy.',
               style: TextStyle(
                 color: primaryText,
                 fontSize: AppTypography.subtitleSize,

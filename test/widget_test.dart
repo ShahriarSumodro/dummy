@@ -29,7 +29,7 @@ void main() {
     }
 
     // Verify the app title is shown
-    expect(find.text('RemembrAI'), findsOneWidget);
+    expect(find.text('Dummy.'), findsOneWidget);
 
     // Verify all 4 navigation tabs exist
     expect(find.text('Home'), findsOneWidget);

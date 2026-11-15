@@ -493,7 +493,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onPressed: () {
                                 AppHaptics.lightImpact();
                                 VoiceService().speak(
-                                  'Hello! I am RemembrAI, your personal business memory assistant. Your system is operational and ready.',
+                                  'Hello! I am Dummy., your personal business memory assistant. Your system is operational and ready.',
                                 );
                               },
                             ),
@@ -568,7 +568,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Version Stamp
                 Center(
                   child: Text(
-                    'RemembrAI v0.1.0 · Personal Executive Memory Assistant',
+                    'Dummy. v0.1.0 · Personal Executive Memory Assistant',
                     style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
                   ),
                 ),

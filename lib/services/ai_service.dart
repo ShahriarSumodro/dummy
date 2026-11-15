@@ -7,8 +7,16 @@ import '../models/commitment.dart';
 
 /// Supported AI Providers with generous or 100% free tiers.
 enum AiProvider {
-  gemini('Google Gemini', 'gemini-2.0-flash', 'Free tier via Google AI Studio (15 RPM, 1M context)'),
-  groq('Groq Cloud', 'llama-3.3-70b-versatile', 'Free tier via console.groq.com (Ultra-fast LPU, Llama 3.3 70B)');
+  gemini(
+    'Google Gemini',
+    'gemini-2.0-flash',
+    'Free tier via Google AI Studio (15 RPM, 1M context)',
+  ),
+  groq(
+    'Groq Cloud',
+    'llama-3.3-70b-versatile',
+    'Free tier via console.groq.com (Ultra-fast LPU, Llama 3.3 70B)',
+  );
 
   final String label;
   final String defaultModel;
@@ -103,28 +111,36 @@ class AiServiceFactory {
 
       // Check models endpoint to verify auth and active catalog
       final modelsUrl = Uri.parse('https://api.groq.com/openai/v1/models');
-      final modelsRes = await http.get(
-        modelsUrl,
-        headers: {
-          'Authorization': 'Bearer $key',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 5));
+      final modelsRes = await http
+          .get(
+            modelsUrl,
+            headers: {
+              'Authorization': 'Bearer $key',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (modelsRes.statusCode == 200) {
         try {
           final data = jsonDecode(modelsRes.body) as Map<String, dynamic>;
-          final list = (data['data'] as List?)
-              ?.map((m) => m['id'] as String)
-              .where((id) => !id.contains('whisper') && !id.contains('guard'))
-              .toList() ?? [];
+          final list =
+              (data['data'] as List?)
+                  ?.map((m) => m['id'] as String)
+                  .where(
+                    (id) => !id.contains('whisper') && !id.contains('guard'),
+                  )
+                  .toList() ??
+              [];
           final activeModel = list.isNotEmpty ? list.first : 'LPU';
           return 'Groq Cloud connected successfully! (Active Model: $activeModel)';
         } catch (_) {
           return 'Groq Cloud connected successfully! (LPU inference active)';
         }
       } else {
-        throw Exception('Groq error (${modelsRes.statusCode}): ${modelsRes.body}');
+        throw Exception(
+          'Groq error (${modelsRes.statusCode}): ${modelsRes.body}',
+        );
       }
     } else {
       if (!key.startsWith('AIza') && key.startsWith('gsk_')) {
@@ -143,10 +159,10 @@ class AiServiceFactory {
           'contents': [
             {
               'parts': [
-                {'text': 'ping'}
-              ]
-            }
-          ]
+                {'text': 'ping'},
+              ],
+            },
+          ],
         }),
       );
       if (res.statusCode == 200) {
@@ -181,11 +197,15 @@ class GroqAiService implements AiService {
   }) async {
     final now = DateTime.now();
     final knownContactsList = existingContacts
-        .map((c) => '{"id": ${c.id}, "name": "${c.name}", "company": "${c.company ?? ''}"}')
+        .map(
+          (c) =>
+              '{"id": ${c.id}, "name": "${c.name}", "company": "${c.company ?? ''}"}',
+        )
         .join(',\n');
 
-    final systemInstruction = '''
-You are RemembrAI, the user's executive personal business assistant.
+    final systemInstruction =
+        '''
+You are Dummy., the user's executive personal business assistant.
 Analyze user notes or conversation transcripts to extract commitments, promises, contacts, and reminders.
 
 Rules:
@@ -274,22 +294,24 @@ If a mentioned person closely matches a known contact, reference their name.
     // Try candidate models in cascade if one returns 404 or model_not_found
     for (final model in _candidateModels) {
       try {
-        final response = await http.post(
-          url,
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'model': model,
-            'messages': [
-              {'role': 'system', 'content': systemInstruction},
-              {'role': 'user', 'content': text},
-            ],
-            'response_format': {'type': 'json_object'},
-            'temperature': 0.1,
-          }),
-        ).timeout(const Duration(seconds: 8));
+        final response = await http
+            .post(
+              url,
+              headers: {
+                'Authorization': 'Bearer $apiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'model': model,
+                'messages': [
+                  {'role': 'system', 'content': systemInstruction},
+                  {'role': 'user', 'content': text},
+                ],
+                'response_format': {'type': 'json_object'},
+                'temperature': 0.1,
+              }),
+            )
+            .timeout(const Duration(seconds: 45));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -313,7 +335,10 @@ If a mentioned person closely matches a known contact, reference their name.
     }
 
     // Fallback gracefully to offline intelligence if all cloud models failed
-    return MockAiService().extract(text: text, existingContacts: existingContacts);
+    return MockAiService().extract(
+      text: text,
+      existingContacts: existingContacts,
+    );
   }
 }
 
@@ -331,11 +356,15 @@ class GeminiAiService implements AiService {
   }) async {
     final now = DateTime.now();
     final knownContactsList = existingContacts
-        .map((c) => '{"id": ${c.id}, "name": "${c.name}", "company": "${c.company ?? ''}"}')
+        .map(
+          (c) =>
+              '{"id": ${c.id}, "name": "${c.name}", "company": "${c.company ?? ''}"}',
+        )
         .join(',\n');
 
-    final systemInstruction = '''
-You are RemembrAI, the user's executive personal business assistant.
+    final systemInstruction =
+        '''
+You are Dummy., the user's executive personal business assistant.
 Analyze user notes or conversation transcripts to extract commitments, promises, contacts, and reminders.
 
 Rules:
@@ -424,23 +453,25 @@ If a mentioned person closely matches a known contact, reference their name.
     );
 
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [
-                {'text': '$systemInstruction\n\nUSER INPUT:\n$text'}
-              ]
-            }
-          ],
-          'generationConfig': {
-            'responseMimeType': 'application/json',
-            'temperature': 0.1,
-          }
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': '$systemInstruction\n\nUSER INPUT:\n$text'},
+                  ],
+                },
+              ],
+              'generationConfig': {
+                'responseMimeType': 'application/json',
+                'temperature': 0.1,
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -455,7 +486,10 @@ If a mentioned person closely matches a known contact, reference their name.
     } catch (_) {}
 
     // Resilient fallback to offline mock engine
-    return MockAiService().extract(text: text, existingContacts: existingContacts);
+    return MockAiService().extract(
+      text: text,
+      existingContacts: existingContacts,
+    );
   }
 }
 
@@ -471,7 +505,10 @@ class MockAiService implements AiService {
 
     // Strip leading conversational greetings: "Hi,", "Hello,", "Hey,"
     var cleanedText = text.trim().replaceFirst(
-      RegExp(r'^(hi|hello|hey|good morning|good afternoon|good evening)\s*[,!:]*\s*', caseSensitive: false),
+      RegExp(
+        r'^(hi|hello|hey|good morning|good afternoon|good evening)\s*[,!:]*\s*',
+        caseSensitive: false,
+      ),
       '',
     );
 
@@ -538,11 +575,29 @@ class MockAiService implements AiService {
 
     // Month mappings (ensures "maybe" is never matched as "may")
     final monthMap = {
-      'january': 1, 'february': 2, 'march': 3, 'april': 4,
-      'may': 5, 'june': 6, 'july': 7, 'august': 8,
-      'september': 9, 'october': 10, 'november': 11, 'december': 12,
-      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'jun': 6, 'jul': 7,
-      'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+      'january': 1,
+      'february': 2,
+      'march': 3,
+      'april': 4,
+      'may': 5,
+      'june': 6,
+      'july': 7,
+      'august': 8,
+      'september': 9,
+      'october': 10,
+      'november': 11,
+      'december': 12,
+      'jan': 1,
+      'feb': 2,
+      'mar': 3,
+      'apr': 4,
+      'jun': 6,
+      'jul': 7,
+      'aug': 8,
+      'sep': 9,
+      'oct': 10,
+      'nov': 11,
+      'dec': 12,
     };
 
     // Explicit date: "16th of November" or "16 November"
@@ -564,7 +619,11 @@ class MockAiService implements AiService {
       final month = monthMap[dmMatch.group(2)!.toLowerCase()];
       if (month != null && day >= 1 && day <= 31) {
         int year = now.year;
-        if (DateTime(year, month, day).isBefore(DateTime(now.year, now.month, now.day))) {
+        if (DateTime(
+          year,
+          month,
+          day,
+        ).isBefore(DateTime(now.year, now.month, now.day))) {
           year++;
         }
         dueDate = DateTime(year, month, day, targetHour, targetMinute);
@@ -576,7 +635,11 @@ class MockAiService implements AiService {
       final day = int.parse(mdMatch.group(2)!);
       if (month != null && day >= 1 && day <= 31) {
         int year = now.year;
-        if (DateTime(year, month, day).isBefore(DateTime(now.year, now.month, now.day))) {
+        if (DateTime(
+          year,
+          month,
+          day,
+        ).isBefore(DateTime(now.year, now.month, now.day))) {
           year++;
         }
         dueDate = DateTime(year, month, day, targetHour, targetMinute);
@@ -585,24 +648,46 @@ class MockAiService implements AiService {
 
     // Relative dates with disfluency/retraction awareness:
     // e.g. "tomorrow, not tomorrow, maybe 16th of November" -> "not tomorrow" negates "tomorrow"
-    final isTomorrowNegated = lower.contains('not tomorrow') ||
+    final isTomorrowNegated =
+        lower.contains('not tomorrow') ||
         lower.contains('no tomorrow') ||
         lower.contains('cancel tomorrow');
 
     if (dueDate == null) {
       if (lower.contains('tomorrow') && !isTomorrowNegated) {
-        dueDate = DateTime(now.year, now.month, now.day + 1, targetHour, targetMinute);
+        dueDate = DateTime(
+          now.year,
+          now.month,
+          now.day + 1,
+          targetHour,
+          targetMinute,
+        );
       } else if (lower.contains('next week')) {
-        dueDate = DateTime(now.year, now.month, now.day + 7, targetHour, targetMinute);
+        dueDate = DateTime(
+          now.year,
+          now.month,
+          now.day + 7,
+          targetHour,
+          targetMinute,
+        );
       } else if (lower.contains('friday')) {
         int daysUntilFriday = (DateTime.friday - now.weekday) % 7;
         if (daysUntilFriday <= 0) daysUntilFriday += 7;
-        dueDate = DateTime(now.year, now.month, now.day + daysUntilFriday, targetHour, targetMinute);
+        dueDate = DateTime(
+          now.year,
+          now.month,
+          now.day + daysUntilFriday,
+          targetHour,
+          targetMinute,
+        );
       }
     }
 
     // Detect multi-person mentions (e.g. Person A, Person B, Person D)
-    final participantRegex = RegExp(r'\b(Person\s+[A-Za-z0-9]|Speaker\s+[A-Za-z0-9])\b', caseSensitive: false);
+    final participantRegex = RegExp(
+      r'\b(Person\s+[A-Za-z0-9]|Speaker\s+[A-Za-z0-9])\b',
+      caseSensitive: false,
+    );
     final participantMatches = participantRegex.allMatches(cleanedText);
     final seenTags = <String>{};
     for (final m in participantMatches) {
@@ -620,21 +705,29 @@ class MockAiService implements AiService {
           }
         }
 
-        contacts.add(ExtractedContact(
-          name: normalizedTag,
-          placeholderTag: normalizedTag,
-          isUnresolved: true,
-          detectedContext: contextSnippet ?? 'Mentioned in group discussion',
-          role: 'Discussion Participant',
-        ));
+        contacts.add(
+          ExtractedContact(
+            name: normalizedTag,
+            placeholderTag: normalizedTag,
+            isUnresolved: true,
+            detectedContext: contextSnippet ?? 'Mentioned in group discussion',
+            role: 'Discussion Participant',
+          ),
+        );
       }
     }
 
     // Detect location if mentioned (e.g. "at my office", "at the office", "at Dhanmondi")
     String? locationSnippet;
-    final locMatch = RegExp(r'\bat\s+(my\s+office|the\s+office|office|[A-Z][a-zA-Z\s]+(?:Office|Center|Hub|Room|Cafe|HQ))\b', caseSensitive: false).firstMatch(cleanedText);
+    final locMatch = RegExp(
+      r'\bat\s+(my\s+office|the\s+office|office|[A-Z][a-zA-Z\s]+(?:Office|Center|Hub|Room|Cafe|HQ))\b',
+      caseSensitive: false,
+    ).firstMatch(cleanedText);
     if (locMatch != null) {
-      locationSnippet = locMatch.group(1)!.trim().replaceAll(RegExp(r'^my\s+', caseSensitive: false), '');
+      locationSnippet = locMatch
+          .group(1)!
+          .trim()
+          .replaceAll(RegExp(r'^my\s+', caseSensitive: false), '');
     }
 
     // ─────────────────────────────────────────────
@@ -651,7 +744,8 @@ class MockAiService implements AiService {
       }
     } else {
       // Split clauses and isolate action
-      final clauses = cleanedText.split(RegExp(r'[.!?\n]+'))
+      final clauses = cleanedText
+          .split(RegExp(r'[.!?\n]+'))
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty)
           .toList();
@@ -692,19 +786,31 @@ class MockAiService implements AiService {
 
       var cleanTitle = candidateText.trim();
       cleanTitle = cleanTitle.replaceAll(
-        RegExp(r"^(okay, so let's see|okay so let's see|let's see|okay|so)\s*,?\s*", caseSensitive: false),
+        RegExp(
+          r"^(okay, so let's see|okay so let's see|let's see|okay|so)\s*,?\s*",
+          caseSensitive: false,
+        ),
         '',
       );
       cleanTitle = cleanTitle.replaceAll(
-        RegExp(r"^(i have got|i have|i've|i got)\s+(a\s+)?", caseSensitive: false),
+        RegExp(
+          r"^(i have got|i have|i've|i got)\s+(a\s+)?",
+          caseSensitive: false,
+        ),
         '',
       );
       cleanTitle = cleanTitle.replaceAll(
-        RegExp(r"^(i will|i'll|i promise to|i promised to|i promised|i need to|i have to)\s+", caseSensitive: false),
+        RegExp(
+          r"^(i will|i'll|i promise to|i promised to|i promised|i need to|i have to)\s+",
+          caseSensitive: false,
+        ),
         '',
       );
       cleanTitle = cleanTitle.replaceAll(
-        RegExp(r"^(he said he would|they promised to|he promised to|she promised to)\s+", caseSensitive: false),
+        RegExp(
+          r"^(he said he would|they promised to|he promised to|she promised to)\s+",
+          caseSensitive: false,
+        ),
         '',
       );
       if (cleanTitle.isNotEmpty) {
@@ -779,7 +885,9 @@ AiExtractionResult _parseExtractionJson(
     final item = ExtractedCommitment.fromJson(c as Map<String, dynamic>);
     if (item.contactName != null) {
       for (final existing in existingContacts) {
-        if (existing.name.toLowerCase().contains(item.contactName!.toLowerCase())) {
+        if (existing.name.toLowerCase().contains(
+          item.contactName!.toLowerCase(),
+        )) {
           item.matchedContactId = existing.id;
           break;
         }

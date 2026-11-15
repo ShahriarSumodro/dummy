@@ -141,7 +141,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                     title: _searching ? 'No matching meetings' : 'No meetings recorded yet',
                     message: _searching
                         ? 'Try a different search query.'
-                        : 'Log client meetings and partner discussions. RemembrAI will summarize topics, decisions, and action items.',
+                        : 'Log client meetings and partner discussions. Dummy. will summarize topics, decisions, and action items.',
                     actionLabel: _searching ? 'Clear Search' : 'Log First Meeting',
                     onAction: _searching
                         ? () {

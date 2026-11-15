@@ -96,7 +96,7 @@ class AiQueryService {
     );
 
     final systemPrompt = '''
-You are RemembrAI, the user's executive personal business memory assistant.
+You are Dummy., the user's executive personal business memory assistant.
 Answer the user's question accurately using ONLY the verified memory context provided below.
 
 GROUNDED BUSINESS MEMORY CONTEXT:
@@ -194,7 +194,7 @@ RULES:
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
 
     final systemPrompt = '''
-You are RemembrAI, the user's executive personal business memory assistant.
+You are Dummy., the user's executive personal business memory assistant.
 Answer the user's question accurately using ONLY the verified memory context provided below.
 
 GROUNDED BUSINESS MEMORY CONTEXT:
