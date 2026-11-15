@@ -11,6 +11,7 @@ import '../models/meeting.dart';
 import '../models/action_draft.dart';
 import '../models/interaction.dart';
 import '../models/assistant_settings.dart';
+import '../models/personality_profile.dart';
 import '../models/memory_item.dart';
 import 'notification_service.dart';
 
@@ -443,6 +444,18 @@ class DatabaseService {
       await NotificationService().scheduleCommitmentNotification(commitment);
     } catch (_) {}
     return res;
+  }
+
+  Future<Commitment?> getCommitment(int id) async {
+    final db = await database;
+    final results = await db.rawQuery('''
+      SELECT c.*, ct.name as contact_name
+      FROM commitments c
+      LEFT JOIN contacts ct ON c.contact_id = ct.id
+      WHERE c.id = ?
+    ''', [id]);
+    if (results.isEmpty) return null;
+    return Commitment.fromMap(results.first);
   }
 
   Future<int> deleteCommitment(int id) async {
@@ -1402,12 +1415,41 @@ class DatabaseService {
     final autoSpeakStr = await getSetting('assistant_auto_speak');
     final notifyStr = await getSetting('assistant_notifications_enabled');
     final rateStr = await getSetting('assistant_speech_rate');
+    final personaJson = await getSetting('personality_profile');
+
+    PersonalityProfile profile = PersonalityProfile.companion;
+    if (personaJson != null && personaJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(personaJson);
+        if (decoded is Map<String, dynamic>) {
+          profile = PersonalityProfile.fromMap(decoded);
+        }
+      } catch (_) {
+        profile = PersonalityProfile.fromId(personaJson);
+      }
+    } else if (toneStr != null) {
+      switch (toneStr) {
+        case 'executive':
+          profile = PersonalityProfile.chiefOfStaff;
+          break;
+        case 'conversational':
+          profile = PersonalityProfile.casualPartner;
+          break;
+        case 'analytical':
+          profile = PersonalityProfile.calmMentor;
+          break;
+        default:
+          profile = PersonalityProfile.companion;
+          break;
+      }
+    }
 
     return AssistantSettings(
       tone: AssistantTone.values.firstWhere(
         (e) => e.name == toneStr,
-        orElse: () => AssistantTone.executive,
+        orElse: () => AssistantTone.companion,
       ),
+      personality: profile,
       language: AssistantLanguage.values.firstWhere(
         (e) => e.name == langStr,
         orElse: () => AssistantLanguage.english,
@@ -1425,6 +1467,7 @@ class DatabaseService {
 
   Future<void> saveAssistantSettings(AssistantSettings settings) async {
     await setSetting('assistant_tone', settings.tone.name);
+    await setSetting('personality_profile', jsonEncode(settings.personality.toMap()));
     await setSetting('assistant_language', settings.language.name);
     await setSetting('assistant_proactivity', settings.proactivity.name);
     await setSetting('user_title', settings.userTitle);

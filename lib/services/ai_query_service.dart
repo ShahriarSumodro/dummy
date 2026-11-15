@@ -289,6 +289,10 @@ BEHAVIOR DIRECTIVES:
     final q = question.toLowerCase();
     final isBangla = settings.language == AssistantLanguage.bangla;
     final isBanglish = settings.language == AssistantLanguage.banglish;
+    final persona = settings.personality;
+    final isChiefOfStaff = persona.id == 'chiefOfStaff' || persona.formality >= 4.5;
+    final isCasualPartner = persona.id == 'casualPartner' || (persona.formality <= 2.0 && persona.humor >= 4.0);
+    final isCalmMentor = persona.id == 'calmMentor';
 
     final commitments = await _db.getAllCommitments();
     final contacts = await _db.getAllContacts();
@@ -310,7 +314,13 @@ BEHAVIOR DIRECTIVES:
           ? 'আপনি বেশ কয়েক ঘণ্টা ধরে কাজ করছেন। বেশি চাপ নেবেন না। কাজ কি আজ রাতেই শেষ করবেন, নাকি গুছিয়ে রেখে বিশ্রাম নেবেন?'
           : (isBanglish
               ? 'Onekক্ষণ dhore kaj korchen. Rest neya dorkar. Ajkei sesh korben naki guchiye rakhben?'
-              : 'You’ve been at it for hours! Don’t burn yourself out. Are we finishing this tonight, or should I help you wrap things up so you can rest?');
+              : (isChiefOfStaff
+                  ? 'Continuous focus session logged. Status: $pendingCount pending commitments tracked. Recommendation: Wrap up deliverables tonight or adjourn to preserve execution performance tomorrow.'
+                  : (isCalmMentor
+                      ? 'You have dedicated many quiet hours to this work. Remember that clarity comes with rest. Shall we note where you left off so you can rest peacefully?'
+                      : (isCasualPartner
+                          ? 'Yo, you’ve been at it for hours! Don’t burn yourself out. Are we finishing this tonight, or should we call it a night so you can recharge?'
+                          : 'You’ve been at it for hours! Don’t burn yourself out. Are we finishing this tonight, or should I help you wrap things up so you can rest?'))));
 
       return AssistantQueryResponse(
         answer: responseText,
@@ -328,7 +338,13 @@ BEHAVIOR DIRECTIVES:
           ? 'বোর লাগলে চলুন কিছু আইডিয়া নিয়ে কথা বলি! আপনি চাইলে নতুন কোনো চিন্তাভাবনা শেয়ার করতে পারেন, কিংবা আগামী দিনের পরিকল্পনা নিয়ে কথা বলতে পারি।'
           : (isBanglish
               ? 'Bore lagche? Shomosha nai, kichu brainstorm korte paren ba upcoming plan niye kotha bolte pari!'
-              : 'Boredom is just your brain asking for something interesting! Want to brainstorm an idea, talk through what’s on your mind, or review your upcoming priorities?');
+              : (isChiefOfStaff
+                  ? 'Operational downtime detected. Recommended action: Review quarterly milestones and stale contact cadences.'
+                  : (isCalmMentor
+                      ? 'Quiet moments offer space for reflection. We could reflect on your long-term goals or simply let your thoughts wander.'
+                      : (isCasualPartner
+                          ? 'Bored? Let’s brainstorm something wild, kick around ideas, or take a well-deserved breather!'
+                          : 'Boredom is just your brain asking for something interesting! Want to brainstorm an idea, talk through what’s on your mind, or review your upcoming priorities?'))));
 
       return AssistantQueryResponse(
         answer: responseText,
@@ -359,7 +375,13 @@ BEHAVIOR DIRECTIVES:
           ? 'হ্যালো! আমি রেমেমব্রাই (RemembrAI), আপনার সার্বক্ষণিক পার্সোনাল কম্প্যানিয়ন। ${overdueCount > 0 ? 'আপনার $overdueCountটি অপেক্ষমাণ প্রতিশ্রুতি আছে।' : 'সবকিছু নিয়মে চলছে।'} আজ আপনাকে কীভাবে সাহায্য করতে পারি?'
           : (isBanglish
               ? 'Hey! Ami RemembrAI, apnar personal companion. Kemon cholche shob? Ki help lagbe bolun.'
-              : 'Hello! I’m RemembrAI, your personal companion. Always right here beside you. ${overdueCount > 0 ? "You have $overdueCount overdue promise needing attention." : "All follow-throughs are in order."} What’s on your mind?');
+              : (isChiefOfStaff
+                  ? 'Good day. Executive Chief of Staff active. ${overdueCount > 0 ? "Alert: $overdueCount overdue commitments require immediate attention." : "All systems and commitments are currently on track."} Ready for your command.'
+                  : (isCalmMentor
+                      ? 'Hello. Peace to your day. ${overdueCount > 0 ? "A gentle reminder that $overdueCount commitments await your care." : "Everything is in balance."} How can I assist your thoughts and schedule?'
+                      : (isCasualPartner
+                          ? 'Hey! What’s happening? ${overdueCount > 0 ? "Heads up, we’ve got $overdueCount overdue things to tackle." : "All quiet on the radar."} What are we working on?'
+                          : 'Hello! I’m RemembrAI, your personal companion. Always right here beside you. ${overdueCount > 0 ? "You have $overdueCount overdue promise needing attention." : "All follow-throughs are in order."} What’s on your mind?'))));
 
       return AssistantQueryResponse(
         answer: greeting,
@@ -390,7 +412,13 @@ BEHAVIOR DIRECTIVES:
     if (q.contains('who are you') || q.contains('what are you') || q.contains('tumi ke')) {
       final responseText = isBangla
           ? 'আমি রেমেমব্রাই (RemembrAI) — আপনার সার্বক্ষণিক পার্সোনাল এআই কম্প্যানিয়ন। আমি আপনার জীবনের মানুষজন, কথোপকথন, প্রতিশ্রুতি ও দায়িত্ব মনে রাখি এবং সেগুলো বাস্তবায়ন করতে সাহায্য করি।'
-          : 'I am RemembrAI — your Personal AI Companion. I carry all your follow-throughs, remember the people, conversations, promises, and responsibilities in your life, and I am always right here for natural conversation whenever you need.';
+          : (isChiefOfStaff
+              ? 'I am your Executive Chief of Staff via RemembrAI. I track all deliverables, meetings, deadlines, and commitments with zero fluff.'
+              : (isCalmMentor
+                  ? 'I am your Calm Mentor on RemembrAI. I help you cultivate thoughtful follow-through, balance, and clear perspective across your commitments.'
+                  : (isCasualPartner
+                      ? 'I’m your Casual Creative Partner on RemembrAI! Your brainstorming co-pilot and follow-through wingman.'
+                      : 'I am RemembrAI — your Personal AI Companion. I carry all your follow-throughs, remember the people, conversations, promises, and responsibilities in your life, and I am always right here for natural conversation whenever you need.')));
 
       return AssistantQueryResponse(
         answer: responseText,

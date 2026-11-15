@@ -1,8 +1,11 @@
+import 'personality_profile.dart';
+
 /// Assistant tone setting.
 enum AssistantTone {
+  companion('Companion', 'Warm, thoughtful, balanced humor & executive follow-through'),
   executive('Executive', 'Crisp, high-signal, decision-focused bullet points'),
-  conversational('Conversational', 'Warm, helpful executive co-pilot'),
-  analytical('Analytical', 'Detailed, structured, risk-aware breakdown');
+  conversational('Creative Partner', 'Witty, relaxed, late-night camaraderie & brainstorming'),
+  analytical('Calm Mentor', 'Reflective, patient, insightful advisor');
 
   final String label;
   final String description;
@@ -34,6 +37,7 @@ enum ProactivityLevel {
 /// Holds personalization preferences for the AI Assistant.
 class AssistantSettings {
   final AssistantTone tone;
+  final PersonalityProfile personality;
   final AssistantLanguage language;
   final ProactivityLevel proactivity;
   final String userTitle; // e.g. 'CEO', 'Director', 'Founder', or empty
@@ -42,7 +46,8 @@ class AssistantSettings {
   final double speechRate;
 
   const AssistantSettings({
-    this.tone = AssistantTone.executive,
+    this.tone = AssistantTone.companion,
+    this.personality = PersonalityProfile.companion,
     this.language = AssistantLanguage.english,
     this.proactivity = ProactivityLevel.balanced,
     this.userTitle = '',
@@ -51,11 +56,11 @@ class AssistantSettings {
     this.speechRate = 0.5,
   });
 
-  static const ProactivityLevel _defaultProactivity = ProactivityLevel.balanced;
   const AssistantSettings.defaults()
-      : tone = AssistantTone.executive,
+      : tone = AssistantTone.companion,
+        personality = PersonalityProfile.companion,
         language = AssistantLanguage.english,
-        proactivity = _defaultProactivity,
+        proactivity = ProactivityLevel.balanced,
         userTitle = '',
         autoSpeakResponses = false,
         notificationsEnabled = true,
@@ -63,6 +68,7 @@ class AssistantSettings {
 
   AssistantSettings copyWith({
     AssistantTone? tone,
+    PersonalityProfile? personality,
     AssistantLanguage? language,
     ProactivityLevel? proactivity,
     String? userTitle,
@@ -72,6 +78,7 @@ class AssistantSettings {
   }) {
     return AssistantSettings(
       tone: tone ?? this.tone,
+      personality: personality ?? this.personality,
       language: language ?? this.language,
       proactivity: proactivity ?? this.proactivity,
       userTitle: userTitle ?? this.userTitle,
@@ -85,8 +92,9 @@ class AssistantSettings {
   String toSystemPromptAddition() {
     final buffer = StringBuffer();
     buffer.writeln('\n[ASSISTANT PERSONALIZATION DIRECTIVES]');
-    
-    // Tone
+    buffer.writeln(personality.toPromptDirectives());
+
+    // Tone Directives
     switch (tone) {
       case AssistantTone.executive:
         buffer.writeln('- TONE: Ultra-crisp, executive summary style. Prioritize actionable facts, names, numbers, and deadlines. Avoid filler.');
@@ -96,6 +104,9 @@ class AssistantSettings {
         break;
       case AssistantTone.analytical:
         buffer.writeln('- TONE: Analytical, structured, thorough. Categorize observations and assess commitment risks.');
+        break;
+      case AssistantTone.companion:
+        buffer.writeln('- TONE: RemembrAI Companion. Warm, thoughtful, balanced humor, and executive dependability.');
         break;
     }
 
