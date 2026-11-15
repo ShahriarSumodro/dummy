@@ -9,6 +9,7 @@ class AppListRow extends StatelessWidget {
   final Widget? leading;
   final String title;
   final String? subtitle;
+  final Widget? badge;
   final Widget? trailing;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -20,6 +21,7 @@ class AppListRow extends StatelessWidget {
     this.leading,
     required this.title,
     this.subtitle,
+    this.badge,
     this.trailing,
     this.onTap,
     this.onLongPress,
@@ -57,17 +59,27 @@ class AppListRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: primaryText,
-                    fontSize: AppTypography.bodySize,
-                    fontWeight: FontWeight.w500,
-                    height: 1.35,
-                    letterSpacing: -0.1,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: primaryText,
+                          fontSize: AppTypography.bodySize,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                          letterSpacing: -0.1,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (badge != null) ...[
+                      const SizedBox(width: 6),
+                      badge!,
+                    ],
+                  ],
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
                   const SizedBox(height: 3),

@@ -3,11 +3,15 @@ import '../theme/design_tokens.dart';
 
 enum AppBadgeVariant {
   confirmed, // Green
+  success, // Alias Green
   needsReview, // Amber / AI guess awaiting confirmation
+  warning, // Alias Amber
   overdue, // Red
+  error, // Alias Red
   done, // Neutral gray
   neutral, // Subtle background
   accent, // Brand ink blue
+  info, // Blue
 }
 
 /// Semantic status badge paired with an icon or explicit label (never color alone).
@@ -52,7 +56,8 @@ class AppBadge extends StatelessWidget {
         isSmall: isSmall,
       );
 
-  factory AppBadge.done({String label = 'Done', bool isSmall = false}) => AppBadge(
+  factory AppBadge.done({String label = 'Done', bool isSmall = false}) =>
+      AppBadge(
         label: label,
         icon: Icons.done_all,
         variant: AppBadgeVariant.done,
@@ -66,60 +71,63 @@ class AppBadge extends StatelessWidget {
 
     Color bg;
     Color fg;
-    Color border;
+    Border? border;
 
     switch (variant) {
       case AppBadgeVariant.confirmed:
+      case AppBadgeVariant.success:
         bg = isDark
             ? AppColors.semanticGreenDarkSubtle
             : AppColors.semanticGreenLight;
         fg = isDark ? AppColors.semanticGreenDark : AppColors.semanticGreen;
-        border = fg.withValues(alpha: 0.25);
         break;
       case AppBadgeVariant.needsReview:
+      case AppBadgeVariant.warning:
         bg = isDark
             ? AppColors.semanticAmberDarkSubtle
             : AppColors.semanticAmberLight;
         fg = isDark ? AppColors.semanticAmberDark : AppColors.semanticAmber;
-        border = fg.withValues(alpha: 0.25);
         break;
       case AppBadgeVariant.overdue:
+      case AppBadgeVariant.error:
         bg = isDark
             ? AppColors.semanticRedDarkSubtle
             : AppColors.semanticRedLight;
         fg = isDark ? AppColors.semanticRedDark : AppColors.semanticRed;
-        border = fg.withValues(alpha: 0.25);
         break;
       case AppBadgeVariant.done:
         bg = isDark
             ? AppColors.semanticNeutralDarkSubtle
             : AppColors.semanticNeutralLight;
         fg = isDark ? AppColors.semanticNeutralDark : AppColors.semanticNeutral;
-        border = fg.withValues(alpha: 0.25);
-        break;
-      case AppBadgeVariant.accent:
-        bg = isDark ? AppColors.darkAccentSubtle : AppColors.lightAccentSubtle;
-        fg = isDark ? AppColors.darkAccent : AppColors.lightAccent;
-        border = fg.withValues(alpha: 0.25);
         break;
       case AppBadgeVariant.neutral:
         bg = isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle;
         fg = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-        border = isDark ? AppColors.darkHairline : AppColors.lightHairline;
+        border = Border.all(
+          color: isDark ? AppColors.darkHairline : AppColors.lightHairline,
+          width: 0.5,
+        );
+        break;
+      case AppBadgeVariant.accent:
+      case AppBadgeVariant.info:
+        bg = isDark ? AppColors.darkAccentSubtle : AppColors.lightAccentSubtle;
+        fg = isDark ? AppColors.darkAccent : AppColors.lightAccent;
         break;
     }
 
-    final double fontSize = isSmall ? 11.0 : AppTypography.captionSize;
-    final double iconSize = isSmall ? 12.0 : 13.0;
-    final double vPadding = isSmall ? 2.5 : 4.5;
-    final double hPadding = isSmall ? 6.5 : 9.0;
+    final double fontSize = isSmall ? 10.0 : AppTypography.captionSize;
+    final double iconSize = isSmall ? 11.0 : 13.0;
+    final EdgeInsets padding = isSmall
+        ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+        : const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: vPadding),
+      padding: padding,
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: AppRadius.pillRadius,
-        border: Border.all(color: border, width: 0.8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: border,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -132,10 +140,10 @@ class AppBadge extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: fg,
               fontSize: fontSize,
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
+              color: fg,
+              letterSpacing: 0.2,
             ),
           ),
         ],

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/commitment.dart';
 import '../services/database_service.dart';
 import '../theme/design_tokens.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_haptics.dart';
 import '../widgets/widgets.dart';
 import 'commitment_form_screen.dart';

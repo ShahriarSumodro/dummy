@@ -5,11 +5,11 @@ import '../theme/design_tokens.dart';
 class AppSkeleton extends StatefulWidget {
   final double width;
   final double height;
-  final double borderRadius;
+  final dynamic borderRadius;
 
   const AppSkeleton({
     super.key,
-    required this.width,
+    this.width = double.infinity,
     required this.height,
     this.borderRadius = AppRadius.input,
   });
@@ -61,6 +61,11 @@ class _AppSkeletonState extends State<AppSkeleton>
     final baseColor =
         isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle;
 
+    final BorderRadiusGeometry radius = widget.borderRadius is BorderRadiusGeometry
+        ? widget.borderRadius as BorderRadiusGeometry
+        : BorderRadius.circular(
+            (widget.borderRadius as num?)?.toDouble() ?? AppRadius.input);
+
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) => Container(
@@ -68,7 +73,7 @@ class _AppSkeletonState extends State<AppSkeleton>
         height: widget.height,
         decoration: BoxDecoration(
           color: baseColor.withValues(alpha: _animation.value),
-          borderRadius: BorderRadius.circular(widget.borderRadius),
+          borderRadius: radius,
           border: Border.all(
             color: (isDark ? AppColors.darkHairline : AppColors.lightHairline)
                 .withValues(alpha: 0.5),

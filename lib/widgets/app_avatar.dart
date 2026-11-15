@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 
+class AppAvatarSize {
+  AppAvatarSize._();
+  static const double sm = 28.0;
+  static const double md = 38.0;
+  static const double lg = 48.0;
+  static const double xl = 64.0;
+}
+
 /// Clean initials / monogram avatar with muted tinted background.
 class AppAvatar extends StatelessWidget {
   final String name;
@@ -11,7 +19,7 @@ class AppAvatar extends StatelessWidget {
   const AppAvatar({
     super.key,
     required this.name,
-    this.size = 38.0,
+    this.size = AppAvatarSize.md,
     this.backgroundColor,
     this.textColor,
   });
@@ -50,9 +58,8 @@ class AppAvatar extends StatelessWidget {
         _getInitials(name),
         style: TextStyle(
           color: fg,
-          fontSize: size * 0.38,
+          fontSize: size * 0.4,
           fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
         ),
       ),
     );

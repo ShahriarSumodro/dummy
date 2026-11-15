@@ -87,6 +87,12 @@ class Contact {
     );
   }
 
+  /// Whether this contact has exceeded their cadence interval since last update.
+  bool get isDueForTouchpoint {
+    final days = DateTime.now().difference(updatedAt).inDays;
+    return days >= cadenceDays;
+  }
+
   /// Display-friendly subtitle (company + role, or phone, or email).
   String get subtitle {
     final parts = <String>[];

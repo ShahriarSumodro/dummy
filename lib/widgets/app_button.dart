@@ -3,9 +3,9 @@ import '../theme/design_tokens.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_haptics.dart';
 
-enum AppButtonVariant { primary, secondary, subtle, destructive }
+enum AppButtonVariant { primary, secondary, subtle, tonal, destructive }
 
-enum AppButtonSize { medium, large }
+enum AppButtonSize { sm, md, lg, medium, large }
 
 /// Standardized tactile button with press-scale interaction and haptic feedback.
 class AppButton extends StatelessWidget {
@@ -22,21 +22,27 @@ class AppButton extends StatelessWidget {
     required this.label,
     this.onPressed,
     this.variant = AppButtonVariant.primary,
-    this.size = AppButtonSize.medium,
+    this.size = AppButtonSize.md,
     this.icon,
-    this.isLoading = false,
-    this.isFullWidth = false,
-  });
+    bool? loading,
+    bool isLoading = false,
+    bool? fullWidth,
+    bool isFullWidth = false,
+  })  : isLoading = loading ?? isLoading,
+        isFullWidth = fullWidth ?? isFullWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final double height = size == AppButtonSize.large ? 52.0 : 44.0;
-    final double fontSize = size == AppButtonSize.large
+    final double height = (size == AppButtonSize.lg || size == AppButtonSize.large)
+        ? 52.0
+        : (size == AppButtonSize.sm ? 36.0 : 44.0);
+
+    final double fontSize = (size == AppButtonSize.lg || size == AppButtonSize.large)
         ? AppTypography.bodySize
-        : AppTypography.secondarySize;
+        : (size == AppButtonSize.sm ? AppTypography.captionSize + 1 : AppTypography.secondarySize);
 
     Color bg;
     Color fg;
@@ -56,72 +62,71 @@ class AppButton extends StatelessWidget {
         );
         break;
       case AppButtonVariant.subtle:
+      case AppButtonVariant.tonal:
         bg = isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle;
         fg = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
         break;
       case AppButtonVariant.destructive:
-        bg = isDark ? AppColors.semanticRedDarkSubtle : AppColors.semanticRedLight;
+        bg = isDark
+            ? AppColors.semanticRedDarkSubtle
+            : AppColors.semanticRedLight;
         fg = isDark ? AppColors.semanticRedDark : AppColors.semanticRed;
         break;
     }
 
-    final bool isDisabled = onPressed == null || isLoading;
-    if (isDisabled) {
-      bg = bg.withValues(alpha: 0.5);
-      fg = fg.withValues(alpha: 0.5);
-    }
+    final effectiveOnPressed = onPressed != null
+        ? () {
+            if (variant == AppButtonVariant.destructive) {
+              AppHaptics.warning();
+            } else {
+              AppHaptics.lightImpact();
+            }
+            onPressed!();
+          }
+        : null;
 
     Widget content = Row(
       mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (isLoading)
+        if (isLoading) ...[
           SizedBox(
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(fg),
-            ),
-          )
-        else ...[
-          if (icon != null) ...[
-            Icon(icon, size: 18, color: fg),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            label,
-            style: TextStyle(
               color: fg,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.1,
             ),
           ),
+          const SizedBox(width: AppSpacing.xs),
+        ] else if (icon != null) ...[
+          Icon(icon, size: size == AppButtonSize.sm ? 16 : 18, color: fg),
+          const SizedBox(width: AppSpacing.xs),
         ],
+        Text(
+          label,
+          style: TextStyle(
+            color: fg,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
       ],
     );
 
     return PressableScale(
-      onTap: isDisabled
-          ? null
-          : () {
-              if (variant == AppButtonVariant.destructive) {
-                AppHaptics.warning();
-              } else {
-                AppHaptics.lightImpact();
-              }
-              onPressed?.call();
-            },
-      child: Container(
+      onTap: effectiveOnPressed,
+      child: AnimatedContainer(
+        duration: AppMotion.snappy,
+        curve: AppMotion.easeOut,
         height: height,
-        constraints: BoxConstraints(
-          minWidth: isFullWidth ? double.infinity : AppSpacing.minTapTarget,
+        padding: EdgeInsets.symmetric(
+          horizontal: size == AppButtonSize.sm ? AppSpacing.sm : AppSpacing.md,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(height / 2), // Clean pill radius
+          color: onPressed == null ? bg.withValues(alpha: 0.5) : bg,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           border: border,
         ),
         alignment: Alignment.center,

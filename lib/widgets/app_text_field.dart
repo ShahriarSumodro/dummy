@@ -7,8 +7,8 @@ class AppTextField extends StatelessWidget {
   final String? label;
   final String? hintText;
   final String? errorText;
-  final Widget? prefixIcon;
-  final Widget? suffixIcon;
+  final dynamic prefixIcon;
+  final dynamic suffixIcon;
   final bool obscureText;
   final TextInputType keyboardType;
   final TextCapitalization textCapitalization;
@@ -43,6 +43,19 @@ class AppTextField extends StatelessWidget {
 
     final primaryText =
         isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+
+    Widget? resolveIcon(dynamic icon) {
+      if (icon == null) return null;
+      if (icon is Widget) return icon;
+      if (icon is IconData) {
+        return Icon(
+          icon,
+          size: 20,
+          color: isDark ? AppColors.darkTextTertiary : AppColors.lightTextTertiary,
+        );
+      }
+      return null;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,8 +94,8 @@ class AppTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hintText,
             errorText: errorText,
-            prefixIcon: prefixIcon,
-            suffixIcon: suffixIcon,
+            prefixIcon: resolveIcon(prefixIcon),
+            suffixIcon: resolveIcon(suffixIcon),
           ),
         ),
       ],

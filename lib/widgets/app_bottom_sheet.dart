@@ -18,7 +18,8 @@ class AppBottomSheet extends StatelessWidget {
   /// Opens an AppBottomSheet with standardized styling and haptics
   static Future<T?> show<T>({
     required BuildContext context,
-    required Widget Function(BuildContext) builder,
+    Widget Function(BuildContext)? builder,
+    Widget? child,
     String? title,
     Widget? trailing,
     bool isScrollControlled = true,
@@ -32,7 +33,7 @@ class AppBottomSheet extends StatelessWidget {
       builder: (ctx) => AppBottomSheet(
         title: title,
         trailing: trailing,
-        child: builder(ctx),
+        child: builder != null ? builder(ctx) : (child ?? const SizedBox.shrink()),
       ),
     );
   }

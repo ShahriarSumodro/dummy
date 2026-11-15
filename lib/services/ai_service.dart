@@ -316,8 +316,6 @@ If a mentioned person closely matches a known contact, reference their name.
     return MockAiService().extract(text: text, existingContacts: existingContacts);
   }
 }
-  }
-}
 
 /// Google Gemini API implementation (cost-efficient, fast, generous free tier).
 class GeminiAiService implements AiService {

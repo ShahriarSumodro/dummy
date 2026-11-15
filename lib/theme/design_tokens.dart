@@ -64,14 +64,37 @@ class AppColors {
   static const Color semanticNeutralLight = Color(0xFFF5F5F4);
   static const Color semanticNeutralDark = Color(0xFFA8A29E);
   static const Color semanticNeutralDarkSubtle = Color(0xFF21201E);
+
+  // Shorthand Semantic Aliases
+  static const Color primary = lightAccent;
+  static const Color success = semanticGreen;
+  static const Color warning = semanticAmber;
+  static const Color error = semanticRed;
+
+  // Context-aware dynamic colors
+  static Color background(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkBackground : lightBackground;
+
+  static Color surface(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkSurface : lightSurface;
+
+  static Color subtle(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkSurfaceSubtle : lightSurfaceSubtle;
+
+  static Color border(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkHairline : lightHairline;
+
+  static Color foreground(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkTextPrimary : lightTextPrimary;
+
+  static Color muted(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkTextSecondary : lightTextSecondary;
 }
 
 /// Strict 8pt Typography & Spacing Scales
 class AppTypography {
   AppTypography._();
 
-  // Mobile standard base 17pt typography scale
-  // Bengali text uses taller line-height (1.5 - 1.6) so characters never clip
   static const double captionSize = 12.0;
   static const double secondarySize = 15.0;
   static const double bodySize = 17.0;
@@ -148,6 +171,12 @@ class AppSpacing {
 /// Border Radii Scale
 class AppRadius {
   AppRadius._();
+
+  static const double sm = 8.0;
+  static const double md = 12.0;
+  static const double lg = 16.0;
+  static const double xl = 24.0;
+  static const double full = 999.0;
 
   static const double input = 8.0;
   static const double card = 16.0;

@@ -265,7 +265,12 @@ RULES:
       }
     }
 
-    return _queryOfflineRuleEngine(question, context);
+    return _queryOfflineRuleEngine(
+      question,
+      context,
+      settings,
+      conversationHistory: conversationHistory,
+    );
   }
 
   Future<AssistantQueryResponse> _queryOfflineRuleEngine(

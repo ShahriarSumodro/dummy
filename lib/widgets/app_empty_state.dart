@@ -16,11 +16,12 @@ class AppEmptyState extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    required this.description,
+    String? description,
+    String? message,
     this.actionLabel,
     this.onAction,
     this.isFullPage = true,
-  });
+  }) : description = description ?? message ?? '';
 
   factory AppEmptyState.allCaughtUp({VoidCallback? onAction}) => AppEmptyState(
         icon: Icons.check_circle_outline,

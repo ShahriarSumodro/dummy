@@ -7,6 +7,7 @@ class AppMotion {
 
   // Durations
   static const Duration micro = Duration(milliseconds: 150);
+  static const Duration snappy = Duration(milliseconds: 200);
   static const Duration normal = Duration(milliseconds: 250);
   static const Duration entrance = Duration(milliseconds: 320);
   static const Duration sheet = Duration(milliseconds: 350);

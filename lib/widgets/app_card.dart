@@ -9,6 +9,7 @@ class AppCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
   final Color? backgroundColor;
   final Color? borderColor;
   final bool isSubtle;
@@ -19,6 +20,7 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.padding = const EdgeInsets.all(AppSpacing.md),
+    this.margin,
     this.backgroundColor,
     this.borderColor,
     this.isSubtle = false,
@@ -38,6 +40,7 @@ class AppCard extends StatelessWidget {
         (isDark ? AppColors.darkHairline : AppColors.lightHairline);
 
     final cardWidget = Container(
+      margin: margin,
       padding: padding,
       decoration: BoxDecoration(
         color: bg,
