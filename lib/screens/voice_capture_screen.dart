@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/database_service.dart';
 import '../services/ai_service.dart';
 import '../services/voice_service.dart';
+import '../services/diarization_service.dart';
+import '../services/meeting_analysis_service.dart';
+import 'meeting_summary_screen.dart';
 import '../models/ai_extraction_result.dart';
 import '../models/commitment.dart';
 import '../models/reminder.dart';
@@ -12,6 +18,8 @@ import '../theme/design_tokens.dart';
 import '../widgets/widgets.dart';
 import 'ai_review_screen.dart';
 import 'multi_participant_resolution_screen.dart';
+
+enum _CaptureMode { meeting, dictation }
 
 /// Deliberate Voice Capture & Real-time AI Voice Decoder Screen.
 /// Users speak naturally, RemembrAI transcribes, decodes commitments/tasks/follow-ups,
@@ -37,6 +45,16 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
   String _selectedLanguage = 'English'; // English, বাংলা, Banglish
 
+  // Meeting (multi-speaker) mode
+  final AudioRecorder _recorder = AudioRecorder();
+  final _keyController = TextEditingController();
+  _CaptureMode _mode = _CaptureMode.meeting;
+  bool _isTranscribing = false;
+  String? _diarizationKey;
+  String? _pendingAudioPath; // kept if upload fails so the user can retry
+  DiarizedTranscript? _diarized;
+  String? _selfLabel; // which "Person X" is the user
+
   static const _sampleVoiceTranscripts = {
     'Single Meeting':
         'I have a meeting at 10:30 with Raju, and I promised him to deliver the proposal by tomorrow.',
@@ -56,6 +74,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   void initState() {
     super.initState();
     _initSpeech();
+    _loadDiarizationKey();
   }
 
   Future<void> _initSpeech() async {
@@ -63,14 +82,14 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
       final available = await _speech.initialize(
         onError: (err) {
           debugPrint('STT Error: ${err.errorMsg}');
-          if (mounted && _isRecording) {
+          if (mounted && _isRecording && _mode == _CaptureMode.dictation) {
             _stopRecording();
           }
         },
         onStatus: (status) {
           debugPrint('STT Status: $status');
           if (status == 'done' || status == 'notListening') {
-            if (mounted && _isRecording) {
+            if (mounted && _isRecording && _mode == _CaptureMode.dictation) {
               _stopRecording();
             }
           }
@@ -88,16 +107,220 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   void dispose() {
     _timer?.cancel();
     _speech.stop();
+    _recorder.dispose();
+    _keyController.dispose();
     _transcriptController.dispose();
     super.dispose();
   }
 
   void _toggleRecording() {
+    if (_isTranscribing) return;
     if (_isRecording) {
-      _stopRecording();
+      if (_mode == _CaptureMode.meeting) {
+        _stopMeetingRecording();
+      } else {
+        _stopRecording();
+      }
     } else {
-      _startRecording();
+      if (_mode == _CaptureMode.meeting) {
+        _startMeetingRecording();
+      } else {
+        _startRecording();
+      }
     }
+  }
+
+  // ───────────────────────────────────────────────
+  // MEETING MODE: record real audio -> speaker diarization
+  // ───────────────────────────────────────────────
+
+  Future<void> _loadDiarizationKey() async {
+    final key = await DiarizationService.getApiKey();
+    if (mounted) setState(() => _diarizationKey = key);
+  }
+
+  Future<void> _saveDiarizationKey() async {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) return;
+    await DiarizationService.setApiKey(key);
+    if (mounted) {
+      AppHaptics.success();
+      setState(() => _diarizationKey = key);
+    }
+  }
+
+  void _showSnack(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.error : null,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startMeetingRecording() async {
+    AppHaptics.mediumImpact();
+    if (_diarizationKey == null || _diarizationKey!.isEmpty) {
+      _showSnack(
+        'Add your Gemini key first to separate speakers.',
+        error: true,
+      );
+      return;
+    }
+    try {
+      if (!await _recorder.hasPermission()) {
+        _showSnack('Microphone permission is required.', error: true);
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/meeting_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          sampleRate: 16000,
+          bitRate: 32000,
+          numChannels: 1,
+        ),
+        path: path,
+      );
+
+      setState(() {
+        _isRecording = true;
+        _recordingSeconds = 0;
+        _diarized = null;
+        _selfLabel = null;
+        _pendingAudioPath = null;
+        _transcriptController.clear();
+      });
+
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _recordingSeconds++);
+      });
+    } catch (e) {
+      debugPrint('Meeting recording start error: $e');
+      _showSnack('Could not start recording: $e', error: true);
+    }
+  }
+
+  Future<void> _stopMeetingRecording() async {
+    AppHaptics.lightImpact();
+    _timer?.cancel();
+    String? path;
+    try {
+      path = await _recorder.stop();
+    } catch (e) {
+      debugPrint('Meeting recording stop error: $e');
+    }
+    if (mounted) setState(() => _isRecording = false);
+
+    if (path == null) {
+      _showSnack('Recording failed. Please try again.', error: true);
+      return;
+    }
+    await _transcribeMeeting(path);
+  }
+
+  String get _languageCode => _selectedLanguage == 'English' ? 'en' : 'bn';
+
+  Future<void> _transcribeMeeting(String path) async {
+    final key = _diarizationKey;
+    if (key == null || key.isEmpty) return;
+    setState(() => _isTranscribing = true);
+    try {
+      final result = await DiarizationService.transcribe(
+        file: File(path),
+        apiKey: key,
+        languageCode: _languageCode,
+      );
+      if (!mounted) return;
+      setState(() {
+        _diarized = result;
+        _selfLabel = null;
+        _pendingAudioPath = null;
+        _transcriptController.text = result.toLabeledText();
+      });
+      AppHaptics.success();
+      try {
+        await File(path).delete(); // don't keep raw meeting audio on the device
+      } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() => _pendingAudioPath = path);
+        _showSnack('Speaker separation failed: $e', error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isTranscribing = false);
+    }
+  }
+
+  /// Transcript with the user's own speaker line renamed to "Me (the user)".
+  String _selfLabeledTranscript(String text) {
+    final me = _selfLabel;
+    if (me == null) return text;
+    return text.replaceAll(
+      RegExp('^${RegExp.escape(me)}:', multiLine: true),
+      'Me (the user):',
+    );
+  }
+
+  /// Summarize what was actually said and find only explicitly spoken commitments.
+  Future<void> _analyzeMeeting() async {
+    final text = _transcriptController.text.trim();
+    if (text.isEmpty) return;
+    AppHaptics.mediumImpact();
+    setState(() => _isProcessing = true);
+    try {
+      final transcript = _selfLabeledTranscript(text);
+      final analysis = await MeetingAnalysisService.analyze(
+        transcript: transcript,
+      );
+      if (!mounted) return;
+      final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MeetingSummaryScreen(
+            analysis: analysis,
+            rawTranscript: transcript,
+          ),
+        ),
+      );
+      if (saved == true && mounted) Navigator.pop(context, true);
+    } catch (e) {
+      _showSnack('Meeting analysis failed: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  /// Text sent to the AI: speaker-labeled transcript plus instructions.
+  String _buildExtractionInput(String text) {
+    final d = _diarized;
+    if (d == null) return text;
+    var body = text;
+    final me = _selfLabel;
+    if (me != null) {
+      body = body.replaceAll(
+        RegExp('^${RegExp.escape(me)}:', multiLine: true),
+        'Me (the user):',
+      );
+    }
+    return '''
+[MEETING TRANSCRIPT — ${d.speakerCount} distinct voices were separated by speaker diarization.
+Each line starts with the speaker label. "Me (the user)" is the person who owns this assistant.
+"Person A", "Person B", ... are other real participants whose names are not yet known.
+In "summary" write a 3-5 sentence meeting summary. Create one commitment per task and set
+"contact_name" to the speaker label of whoever owns that task. Tasks the user must do are "promiseMade"
+or "task"; tasks others must do are "promiseReceived". If a speaker states their real name, use it.]
+
+$body''';
   }
 
   Future<void> _startRecording() async {
@@ -172,7 +395,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
         SnackBar(
           content: const Text('Please speak or type a note first.'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
         ),
       );
       return;
@@ -180,6 +405,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
     AppHaptics.mediumImpact();
     setState(() => _isProcessing = true);
+    final extractionText = _buildExtractionInput(text);
 
     try {
       final existingContacts = await _db.getAllContacts();
@@ -188,14 +414,14 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
       AiExtractionResult result;
       try {
         result = await aiService.extract(
-          text: text,
+          text: extractionText,
           existingContacts: existingContacts,
         );
       } catch (_) {
         // Resilient fallback to local rule engine
         final offlineService = MockAiService();
         result = await offlineService.extract(
-          text: text,
+          text: extractionText,
           existingContacts: existingContacts,
         );
       }
@@ -236,7 +462,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
           SnackBar(
             content: Text('Decoding failed: $e'),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         );
       }
@@ -285,7 +513,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
           remindAt: er.remindAt,
           isRecurring: er.isRecurring,
           recurringRule: er.recurringRule,
-          commitmentId: savedCommitments.isNotEmpty ? savedCommitments.first.id : null,
+          commitmentId: savedCommitments.isNotEmpty
+              ? savedCommitments.first.id
+              : null,
           status: ReminderStatus.pending,
         );
         await _db.insertReminder(reminder);
@@ -308,7 +538,8 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
             ' I also scheduled ${savedCommitments.length - 1} additional commitment${savedCommitments.length > 2 ? 's' : ''} from this conversation.',
           );
         }
-        speechBuffer.write(' Notification reminders are set.');
+        if (result.reminders.isNotEmpty)
+          speechBuffer.write(' Notification reminders are set.');
       } else {
         speechBuffer.write('Done! I have decoded and saved your notes.');
       }
@@ -324,7 +555,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
             ),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         );
         Navigator.pop(context, true);
@@ -333,7 +566,10 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
       if (mounted) {
         AppHaptics.warning();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Auto-setup error: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text('Auto-setup error: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -348,7 +584,10 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
         titleSpacing: 0,
-        title: const Text('Voice AI Decoder & Setup', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Voice AI Decoder & Setup',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -359,11 +598,17 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.mic_none_rounded, color: AppColors.primary, size: 20),
+                const Icon(
+                  Icons.mic_none_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
@@ -379,6 +624,93 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
+
+          // Capture Mode
+          Text(
+            'CAPTURE MODE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.muted(context),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final m in _CaptureMode.values)
+                ChoiceChip(
+                  label: Text(
+                    m == _CaptureMode.meeting
+                        ? 'Meeting (multi-speaker)'
+                        : 'Quick dictation',
+                  ),
+                  selected: _mode == m,
+                  selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: _mode == m ? FontWeight.w600 : FontWeight.w500,
+                    color: _mode == m
+                        ? Colors.white
+                        : AppColors.foreground(context),
+                  ),
+                  onSelected: (_isRecording || _isTranscribing)
+                      ? null
+                      : (_) {
+                          AppHaptics.lightImpact();
+                          setState(() => _mode = m);
+                        },
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          if (_mode == _CaptureMode.meeting &&
+              (_diarizationKey == null || _diarizationKey!.isEmpty)) ...[
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'One-time setup: speaker separation key',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.foreground(context),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Groq transcribes text but cannot tell voices apart. Paste a free Gemini API key '
+                    '(aistudio.google.com/apikey) to label Person A, B, C... Your Groq key keeps doing the '
+                    'summary and task extraction.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted(context),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppTextField(
+                    controller: _keyController,
+                    label: 'Gemini API Key (for speaker separation)',
+                    hintText: 'Paste key here',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: 'Save key',
+                    icon: Icons.key_rounded,
+                    fullWidth: true,
+                    size: AppButtonSize.md,
+                    onPressed: _saveDiarizationKey,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
 
           // Language Selector
           Text(
@@ -438,7 +770,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
                             ]
                           : [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.35),
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.35,
+                                ),
                                 blurRadius: 20,
                                 offset: const Offset(0, 6),
                               ),
@@ -453,27 +787,108 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  _isRecording
-                      ? '● Listening ($minutes:$seconds)... Speak now'
-                      : 'Tap microphone to speak with RemembrAI',
+                  _isTranscribing
+                      ? 'Separating speakers & transcribing...'
+                      : _isRecording
+                      ? (_mode == _CaptureMode.meeting
+                            ? '● Recording meeting ($minutes:$seconds)'
+                            : '● Listening ($minutes:$seconds)... Speak now')
+                      : (_mode == _CaptureMode.meeting
+                            ? 'Tap microphone to record the meeting'
+                            : 'Tap microphone to speak with RemembrAI'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: _isRecording ? AppColors.error : AppColors.foreground(context),
+                    color: _isRecording
+                        ? AppColors.error
+                        : AppColors.foreground(context),
                   ),
                 ),
                 if (_isRecording)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      'Tap stop when you are done speaking',
-                      style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
+                      _mode == _CaptureMode.meeting
+                          ? 'Tap stop when the meeting ends — speakers are separated afterwards'
+                          : 'Tap stop when you are done speaking',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.muted(context),
+                      ),
                     ),
                   ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
+
+          if (_isTranscribing)
+            const Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.md),
+              child: LinearProgressIndicator(),
+            ),
+
+          if (_pendingAudioPath != null && !_isTranscribing) ...[
+            AppButton(
+              label: 'Retry speaker separation',
+              icon: Icons.refresh_rounded,
+              variant: AppButtonVariant.secondary,
+              fullWidth: true,
+              size: AppButtonSize.md,
+              onPressed: () => _transcribeMeeting(_pendingAudioPath!),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+
+          if (_diarized != null) ...[
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_diarized!.speakerCount} speaker${_diarized!.speakerCount == 1 ? '' : 's'} detected',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.foreground(context),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Which one is you?',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted(context),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: _diarized!.labels.map((label) {
+                      final sel = _selfLabel == label;
+                      return ChoiceChip(
+                        label: Text(label),
+                        selected: sel,
+                        selectedColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          fontSize: 12,
+                          color: sel
+                              ? Colors.white
+                              : AppColors.foreground(context),
+                        ),
+                        onSelected: (_) {
+                          AppHaptics.lightImpact();
+                          setState(() => _selfLabel = sel ? null : label);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
 
           // Quick Preset Prompts
           Text(
@@ -496,7 +911,11 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
                   AppHaptics.lightImpact();
                   setState(() {
                     _transcriptController.text = e.value;
-                    _selectedLanguage = e.key;
+                    _diarized = null;
+                    _selfLabel = null;
+                    if (['English', 'বাংলা', 'Banglish'].contains(e.key)) {
+                      _selectedLanguage = e.key;
+                    }
                   });
                 },
               );
@@ -508,42 +927,75 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
           AppTextField(
             controller: _transcriptController,
             label: 'Live Voice Transcript',
-            hintText: 'Your spoken words will appear here in real-time as you speak...',
-            maxLines: 4,
+            hintText:
+                'Your spoken words will appear here in real-time as you speak...',
+            maxLines: 10,
             suffixIcon: _transcriptController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear_rounded, size: 18),
-                    onPressed: () => setState(() => _transcriptController.clear()),
+                    onPressed: () =>
+                        setState(() => _transcriptController.clear()),
                   )
                 : null,
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Action 1: Instant Setup for Me (1-Tap)
-          AppButton(
-            label: _isProcessing ? 'Analyzing & Setting Up...' : 'Decode & Setup for Me (1-Tap)',
-            icon: Icons.bolt_rounded,
-            fullWidth: true,
-            size: AppButtonSize.lg,
-            loading: _isProcessing,
-            onPressed: (_isRecording || _isProcessing || _transcriptController.text.isEmpty)
-                ? null
-                : () => _decodeAndSetup(autoSetup: true),
-          ),
-          const SizedBox(height: AppSpacing.sm),
+          if (_diarized != null) ...[
+            AppButton(
+              label: _isProcessing
+                  ? 'Analyzing meeting...'
+                  : 'Summarize Meeting',
+              icon: Icons.summarize_rounded,
+              fullWidth: true,
+              size: AppButtonSize.lg,
+              loading: _isProcessing,
+              onPressed:
+                  (_isRecording ||
+                      _isProcessing ||
+                      _isTranscribing ||
+                      _transcriptController.text.isEmpty)
+                  ? null
+                  : _analyzeMeeting,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          if (_diarized == null) ...[
+            // Action 1: Instant Setup for Me (1-Tap)
+            AppButton(
+              label: _isProcessing
+                  ? 'Analyzing & Setting Up...'
+                  : 'Decode & Setup for Me (1-Tap)',
+              icon: Icons.bolt_rounded,
+              fullWidth: true,
+              size: AppButtonSize.lg,
+              loading: _isProcessing,
+              onPressed:
+                  (_isRecording ||
+                      _isProcessing ||
+                      _isTranscribing ||
+                      _transcriptController.text.isEmpty)
+                  ? null
+                  : () => _decodeAndSetup(autoSetup: true),
+            ),
+            const SizedBox(height: AppSpacing.sm),
 
-          // Action 2: Review & Edit Details
-          AppButton(
-            label: 'Review & Fine-Tune Details First',
-            icon: Icons.tune_rounded,
-            variant: AppButtonVariant.secondary,
-            fullWidth: true,
-            size: AppButtonSize.md,
-            onPressed: (_isRecording || _isProcessing || _transcriptController.text.isEmpty)
-                ? null
-                : () => _decodeAndSetup(autoSetup: false),
-          ),
+            // Action 2: Review & Edit Details
+            AppButton(
+              label: 'Review & Fine-Tune Details First',
+              icon: Icons.tune_rounded,
+              variant: AppButtonVariant.secondary,
+              fullWidth: true,
+              size: AppButtonSize.md,
+              onPressed:
+                  (_isRecording ||
+                      _isProcessing ||
+                      _isTranscribing ||
+                      _transcriptController.text.isEmpty)
+                  ? null
+                  : () => _decodeAndSetup(autoSetup: false),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xxl),
         ],
       ),
