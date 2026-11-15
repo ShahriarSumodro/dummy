@@ -26,7 +26,10 @@ void main() {
           home: ShellScreen(),
         ),
       );
-      await tester.pumpAndSettle();
+      for (int i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
 
       // Check tab items
       expect(find.text('Home'), findsOneWidget);
@@ -39,17 +42,26 @@ void main() {
 
       // Tap Commitments/Promises tab
       await tester.tap(find.text('Promises'));
-      await tester.pumpAndSettle();
+      for (int i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
       expect(find.byType(CommitmentsScreen), findsOneWidget);
 
       // Tap People tab
       await tester.tap(find.text('People'));
-      await tester.pumpAndSettle();
+      for (int i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
       expect(find.byType(PeopleScreen), findsOneWidget);
 
       // Tap Memory tab
       await tester.tap(find.text('Memory'));
-      await tester.pumpAndSettle();
+      for (int i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
       expect(find.byType(MemoryHubScreen), findsOneWidget);
     });
 
@@ -59,14 +71,20 @@ void main() {
           home: ShellScreen(),
         ),
       );
-      await tester.pumpAndSettle();
+      for (int i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
 
       // Find center FAB
       final fabFinder = find.byIcon(Icons.add_rounded);
       expect(fabFinder, findsOneWidget);
 
       await tester.tap(fabFinder);
-      await tester.pumpAndSettle();
+      for (int i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
 
       // Verify bottom sheet options
       expect(find.text('Capture Business Memory'), findsOneWidget);

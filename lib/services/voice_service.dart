@@ -127,11 +127,11 @@ class VoiceService {
     // 5. Strip redundant relative dates from the action phrase if dueDate is already set
     if (dueDate != null) {
       cleanTitle = cleanTitle.replaceAll(
-        RegExp(r'\b(by|at|for|on)?\s*tomorrow\s*(at|by)?\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)?\b', caseSensitive: false),
+        RegExp(r'\b(by|at|for|on)?\s*tomorrow\s*(at|by)?\s*(\d{1,2}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.?)?)?', caseSensitive: false),
         '',
       );
       cleanTitle = cleanTitle.replaceAll(
-        RegExp(r'\b(at|by)\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b', caseSensitive: false),
+        RegExp(r'\b(at|by)\s+\d{1,2}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.?)?', caseSensitive: false),
         '',
       );
       cleanTitle = cleanTitle.replaceAll(
@@ -225,18 +225,18 @@ class VoiceService {
     text = text.replaceAll(RegExp(r'```[\s\S]*?```'), '');
 
     // Remove inline code `...`
-    text = text.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
+    text = text.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) => m[1]!);
 
     // Remove markdown links [text](url) -> text
-    text = text.replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1');
+    text = text.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), (m) => m[1]!);
 
     // Remove markdown headers #, ##, ###
     text = text.replaceAll(RegExp(r'^[#]+\s*', multiLine: true), '');
 
     // Remove bold and italic markers **text** or *text*
-    text = text.replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'$1');
-    text = text.replaceAll(RegExp(r'\*([^*]+)\*'), r'$1');
-    text = text.replaceAll(RegExp(r'_([^_]+)_'), r'$1');
+    text = text.replaceAllMapped(RegExp(r'\*\*([^*]+)\*\*'), (m) => m[1]!);
+    text = text.replaceAllMapped(RegExp(r'\*([^*]+)\*'), (m) => m[1]!);
+    text = text.replaceAllMapped(RegExp(r'_([^_]+)_'), (m) => m[1]!);
 
     // Clean bullet symbols (-, *, •) at line beginnings
     text = text.replaceAll(RegExp(r'^\s*[-*•]\s+', multiLine: true), '');

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Centralized Design Tokens for Dummy..
+/// Centralized Design Tokens for RemembrAI.
 /// Strict adherence to premium mobile UI specifications:
 /// Calm, confident, quiet, 60-30-10 color balance, 8pt spacing grid.
 class AppColors {

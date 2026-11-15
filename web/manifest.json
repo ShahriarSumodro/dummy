@@ -1,11 +1,11 @@
 {
-    "name": "Dummy.",
-    "short_name": "Dummy.",
+    "name": "RemembrAI",
+    "short_name": "RemembrAI",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "RemembrAI — Your Personal AI Companion",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

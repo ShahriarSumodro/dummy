@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -210,6 +211,18 @@ class DatabaseService {
       )
     ''');
 
+    // 9. Persistent Companion Chat Messages
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT NOT NULL,
+        is_user INTEGER NOT NULL,
+        source_references TEXT,
+        suggested_next_actions TEXT,
+        timestamp TEXT NOT NULL
+      )
+    ''');
+
     // Indexes
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_commitments_status ON commitments (status)',
@@ -234,6 +247,9 @@ class DatabaseService {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_interactions_timestamp ON interactions (timestamp)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages (timestamp)',
     );
 
     // Migrations for existing installs
@@ -948,6 +964,63 @@ class DatabaseService {
   }
 
   // ─────────────────────────────────────────────
+  //  PERSISTENT CHAT MESSAGES
+  // ─────────────────────────────────────────────
+
+  Future<int> insertChatMessage({
+    required String text,
+    required bool isUser,
+    List<String> sourceReferences = const [],
+    List<String> suggestedNextActions = const [],
+    DateTime? timestamp,
+  }) async {
+    final db = await database;
+    return await db.insert('chat_messages', {
+      'text': text,
+      'is_user': isUser ? 1 : 0,
+      'source_references': jsonEncode(sourceReferences),
+      'suggested_next_actions': jsonEncode(suggestedNextActions),
+      'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getChatMessages({int limit = 100}) async {
+    final db = await database;
+    final results = await db.query(
+      'chat_messages',
+      orderBy: 'id ASC',
+      limit: limit,
+    );
+    return results.map((row) {
+      List<String> refs = [];
+      if (row['source_references'] != null) {
+        try {
+          refs = List<String>.from(jsonDecode(row['source_references'] as String));
+        } catch (_) {}
+      }
+      List<String> actions = [];
+      if (row['suggested_next_actions'] != null) {
+        try {
+          actions = List<String>.from(jsonDecode(row['suggested_next_actions'] as String));
+        } catch (_) {}
+      }
+      return {
+        'id': row['id'] as int,
+        'text': row['text'] as String,
+        'is_user': (row['is_user'] as int) == 1,
+        'source_references': refs,
+        'suggested_next_actions': actions,
+        'timestamp': row['timestamp'] as String,
+      };
+    }).toList();
+  }
+
+  Future<void> clearChatMessages() async {
+    final db = await database;
+    await db.delete('chat_messages');
+  }
+
+  // ─────────────────────────────────────────────
   //  FULL DATA EXPORT & BACKUP
   // ─────────────────────────────────────────────
 
@@ -973,6 +1046,7 @@ class DatabaseService {
 
   Future<void> clearAllData() async {
     final db = await database;
+    await db.delete('chat_messages');
     await db.delete('action_drafts');
     await db.delete('reminders');
     await db.delete('commitments');

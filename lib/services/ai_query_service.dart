@@ -96,26 +96,29 @@ class AiQueryService {
     );
 
     final systemPrompt = '''
-You are Dummy., the user's executive personal business memory assistant.
-Answer the user's question accurately using ONLY the verified memory context provided below.
+You are RemembrAI, the user's Personal AI Companion and personal business memory assistant.
+You carry all of the user's follow-throughs, remember the people, conversations, promises, and responsibilities in their life, and are always there for a natural conversation.
 
-GROUNDED BUSINESS MEMORY CONTEXT:
+GROUNDED BUSINESS & PERSONAL CONTEXT:
 $context
 
 ${settings.toSystemPromptAddition()}
 
-RULES:
-1. EXECUTIVE ASSISTANT VOICE: Address the user respectfully as their executive client (e.g. "You have a meeting with Raju at 10:30 AM", "You promised Karim..."). Never parrot raw first-person quotes like "You have a commitment 'I have a meeting'".
-2. Answer factually based on the context and conversation history. Never invent promises or meetings.
-3. If information is not in memory, honestly state: "I don't have a record of that in your memory yet."
-4. Highlight pending deadlines and commitments clearly.
-4. Support multi-turn questions (e.g. "What about him?", "Draft a follow up to her").
-5. Return strictly JSON in this format:
-{
-  "answer": "Direct, professional, bulleted or summarized answer",
-  "sourceReferences": ["Referenced contact, commitment, or meeting names"],
-  "suggestedNextActions": ["Suggested action 1 (e.g. Prepare email to X)", "Suggested action 2"]
-}
+BEHAVIOR DIRECTIVES:
+1. DUAL-MODE INTELLIGENCE (COMPANION + FOLLOW-THROUGH):
+   - CASUAL / CONVERSATIONAL INTENT: If the user is having a casual conversation, sharing how they feel, making a joke, talking about late night work ("1:30 AM desk talk"), saying they are bored, or greeting you, respond with natural warmth, subtle wit, and camaraderie as a loyal companion. You may lightly reference known context (e.g. current hour, upcoming schedule, active projects) without forcing unneeded tasks.
+   - FUNCTIONAL / MEMORY INTENT: If the user asks about people, promises, commitments, meetings, deadlines, or tasks, answer factually using ONLY the verified context above. Never hallucinate promises or meetings.
+   - UNKNOWN MEMORY INQUIRY: If the user asks whether you remember a specific person or fact that is NOT in your memory, honestly state with companion warmth: "I don't have a record of that in your memory yet. Tell me about it, and I'll remember it for you."
+2. TONE & PERSONALITY:
+   - Speak naturally and engagingly. You can be professional when needed, funny when appropriate, and casual when the situation allows.
+   - Never parrot raw first-person quotes like "You have a commitment 'I have a meeting'". Address the user as their companion.
+3. OUTPUT FORMAT:
+   Return strictly valid JSON in this format:
+   {
+     "answer": "Your natural companion response or clear bulleted factual memory summary",
+     "sourceReferences": ["Referenced contact, commitment, or meeting names, or empty if purely casual"],
+     "suggestedNextActions": ["Suggested action 1 (e.g. Draft follow up to Rahim)", "Suggested action 2, or empty if purely casual"]
+   }
 ''';
 
     final contents = <Map<String, dynamic>>[];
@@ -194,26 +197,29 @@ RULES:
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
 
     final systemPrompt = '''
-You are Dummy., the user's executive personal business memory assistant.
-Answer the user's question accurately using ONLY the verified memory context provided below.
+You are RemembrAI, the user's Personal AI Companion and personal business memory assistant.
+You carry all of the user's follow-throughs, remember the people, conversations, promises, and responsibilities in their life, and are always there for a natural conversation.
 
-GROUNDED BUSINESS MEMORY CONTEXT:
+GROUNDED BUSINESS & PERSONAL CONTEXT:
 $context
 
 ${settings.toSystemPromptAddition()}
 
-RULES:
-1. EXECUTIVE ASSISTANT VOICE: Address the user respectfully as their executive client (e.g. "You have a meeting with Raju at 10:30 AM", "You promised Karim..."). Never parrot raw first-person quotes like "You have a commitment 'I have a meeting'".
-2. Answer factually based on the context and conversation history. Never invent promises or meetings.
-3. If information is not in memory, honestly state: "I don't have a record of that in your memory yet."
-4. Highlight pending deadlines and commitments clearly.
-4. Support multi-turn questions (e.g. "What about him?", "Draft a follow up to her").
-5. Return strictly JSON in this format:
-{
-  "answer": "Direct, professional, bulleted or summarized answer",
-  "sourceReferences": ["Referenced contact, commitment, or meeting names"],
-  "suggestedNextActions": ["Suggested action 1 (e.g. Prepare email to X)", "Suggested action 2"]
-}
+BEHAVIOR DIRECTIVES:
+1. DUAL-MODE INTELLIGENCE (COMPANION + FOLLOW-THROUGH):
+   - CASUAL / CONVERSATIONAL INTENT: If the user is having a casual conversation, sharing how they feel, making a joke, talking about late night work ("1:30 AM desk talk"), saying they are bored, or greeting you, respond with natural warmth, subtle wit, and camaraderie as a loyal companion. You may lightly reference known context (e.g. current hour, upcoming schedule, active projects) without forcing unneeded tasks.
+   - FUNCTIONAL / MEMORY INTENT: If the user asks about people, promises, commitments, meetings, deadlines, or tasks, answer factually using ONLY the verified context above. Never hallucinate promises or meetings.
+   - UNKNOWN MEMORY INQUIRY: If the user asks whether you remember a specific person or fact that is NOT in your memory, honestly state with companion warmth: "I don't have a record of that in your memory yet. Tell me about it, and I'll remember it for you."
+2. TONE & PERSONALITY:
+   - Speak naturally and engagingly. You can be professional when needed, funny when appropriate, and casual when the situation allows.
+   - Never parrot raw first-person quotes like "You have a commitment 'I have a meeting'". Address the user as their companion.
+3. OUTPUT FORMAT:
+   Return strictly valid JSON in this format:
+   {
+     "answer": "Your natural companion response or clear bulleted factual memory summary",
+     "sourceReferences": ["Referenced contact, commitment, or meeting names, or empty if purely casual"],
+     "suggestedNextActions": ["Suggested action 1 (e.g. Draft follow up to Rahim)", "Suggested action 2, or empty if purely casual"]
+   }
 ''';
 
     final messages = <Map<String, String>>[];
@@ -287,6 +293,118 @@ RULES:
     final commitments = await _db.getAllCommitments();
     final contacts = await _db.getAllContacts();
     final meetings = await _db.getAllMeetings();
+
+    // ─────────────────────────────────────────────
+    // 1. CASUAL / COMPANION CONVERSATION INTENTS
+    // ─────────────────────────────────────────────
+
+    // A. Working Late / Fatigue / "1:30 AM conversation" (Master Doc Section 3.3)
+    if (q.contains('working late') ||
+        q.contains('for hours') ||
+        q.contains('1:30') ||
+        q.contains('been working on this') ||
+        q.contains('exhausted') ||
+        q.contains('tired')) {
+      final pendingCount = commitments.where((c) => c.status.name == 'pending').length;
+      final responseText = isBangla
+          ? 'আপনি বেশ কয়েক ঘণ্টা ধরে কাজ করছেন। বেশি চাপ নেবেন না। কাজ কি আজ রাতেই শেষ করবেন, নাকি গুছিয়ে রেখে বিশ্রাম নেবেন?'
+          : (isBanglish
+              ? 'Onekক্ষণ dhore kaj korchen. Rest neya dorkar. Ajkei sesh korben naki guchiye rakhben?'
+              : 'You’ve been at it for hours! Don’t burn yourself out. Are we finishing this tonight, or should I help you wrap things up so you can rest?');
+
+      return AssistantQueryResponse(
+        answer: responseText,
+        suggestedNextActions: [
+          'What do I have scheduled tomorrow?',
+          if (pendingCount > 0) 'Show my urgent pending commitments',
+          'Help me wrap up for the night',
+        ],
+      );
+    }
+
+    // B. Boredom / Downtime (Master Doc Section 8.2)
+    if (q.contains('bored') || q.contains('bore') || q.contains('nothing to do')) {
+      final responseText = isBangla
+          ? 'বোর লাগলে চলুন কিছু আইডিয়া নিয়ে কথা বলি! আপনি চাইলে নতুন কোনো চিন্তাভাবনা শেয়ার করতে পারেন, কিংবা আগামী দিনের পরিকল্পনা নিয়ে কথা বলতে পারি।'
+          : (isBanglish
+              ? 'Bore lagche? Shomosha nai, kichu brainstorm korte paren ba upcoming plan niye kotha bolte pari!'
+              : 'Boredom is just your brain asking for something interesting! Want to brainstorm an idea, talk through what’s on your mind, or review your upcoming priorities?');
+
+      return AssistantQueryResponse(
+        answer: responseText,
+        suggestedNextActions: [
+          'What are my key goals right now?',
+          'Who should I follow up with today?',
+          'Tell me a quick joke',
+        ],
+      );
+    }
+
+    // C. Greetings & Check-ins
+    if (q == 'hello' ||
+        q == 'hi' ||
+        q == 'hey' ||
+        q.startsWith('hello ') ||
+        q.startsWith('hi ') ||
+        q.startsWith('hey ') ||
+        q.contains('good morning') ||
+        q.contains('good evening') ||
+        q.contains('how are you') ||
+        q.contains('kemon acho') ||
+        q.contains('ki khobor')) {
+      final overdueCount = commitments.where((c) => c.isOverdue).length;
+      final pendingCount = commitments.where((c) => c.status.name == 'pending').length;
+
+      final greeting = isBangla
+          ? 'হ্যালো! আমি রেমেমব্রাই (RemembrAI), আপনার সার্বক্ষণিক পার্সোনাল কম্প্যানিয়ন। ${overdueCount > 0 ? 'আপনার $overdueCountটি অপেক্ষমাণ প্রতিশ্রুতি আছে।' : 'সবকিছু নিয়মে চলছে।'} আজ আপনাকে কীভাবে সাহায্য করতে পারি?'
+          : (isBanglish
+              ? 'Hey! Ami RemembrAI, apnar personal companion. Kemon cholche shob? Ki help lagbe bolun.'
+              : 'Hello! I’m RemembrAI, your personal companion. Always right here beside you. ${overdueCount > 0 ? "You have $overdueCount overdue promise needing attention." : "All follow-throughs are in order."} What’s on your mind?');
+
+      return AssistantQueryResponse(
+        answer: greeting,
+        suggestedNextActions: [
+          'What do I have tomorrow?',
+          'Which clients need a follow-up?',
+          'What did I promise recently?',
+        ],
+      );
+    }
+
+    // D. Humour / Jokes
+    if (q.contains('joke') || q.contains('funny')) {
+      final responseText = isBangla
+          ? 'একজন প্রোগ্রামার বাজারে গিয়ে বললেন, "এক হালি ডিম দিন, আর যদি তরমুজ থাকে তবে ১০টা দিন।" তিনি ১০ হালি ডিম নিয়ে বাসায় ফিরলেন!\n\nআপনার আর কোনো প্রতিশ্রুতি ট্র্যাক করতে হবে?'
+          : 'Why do programmers prefer dark mode? Because light attracts bugs!\n\nAlways here if you need a quick laugh or need to track a promise.';
+
+      return AssistantQueryResponse(
+        answer: responseText,
+        suggestedNextActions: [
+          'Show my pending commitments',
+          'Who is in my contacts?',
+        ],
+      );
+    }
+
+    // E. Identity & Capability (Master Doc Section 1.3)
+    if (q.contains('who are you') || q.contains('what are you') || q.contains('tumi ke')) {
+      final responseText = isBangla
+          ? 'আমি রেমেমব্রাই (RemembrAI) — আপনার সার্বক্ষণিক পার্সোনাল এআই কম্প্যানিয়ন। আমি আপনার জীবনের মানুষজন, কথোপকথন, প্রতিশ্রুতি ও দায়িত্ব মনে রাখি এবং সেগুলো বাস্তবায়ন করতে সাহায্য করি।'
+          : 'I am RemembrAI — your Personal AI Companion. I carry all your follow-throughs, remember the people, conversations, promises, and responsibilities in your life, and I am always right here for natural conversation whenever you need.';
+
+      return AssistantQueryResponse(
+        answer: responseText,
+        suggestedNextActions: [
+          'What commitments are pending?',
+          'Show recent meetings',
+          'Who is in my contacts?',
+        ],
+      );
+    }
+
+    // ─────────────────────────────────────────────
+    // 2. FUNCTIONAL / MEMORY GROUNDED QUERIES
+    // ─────────────────────────────────────────────
 
     // Context resolution from multi-turn history
     String targetQuery = q;

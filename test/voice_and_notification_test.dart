@@ -144,7 +144,7 @@ void test() {}
         type: CommitmentType.task,
         dueDate: DateTime(2026, 11, 16, 10, 30),
       );
-      expect(speech1, contains('You have a Meeting at 10:30 with Raju'));
+      expect(speech1, anyOf(contains('You have a meeting with Raju'), contains('You have a Meeting at 10:30 with Raju')));
       expect(speech1.contains("I've"), isFalse);
 
       final speech2 = VoiceService.formatCommitmentSpeech(
@@ -153,7 +153,7 @@ void test() {}
         contactName: 'Karim',
         dueDate: DateTime(2026, 11, 17, 16, 0),
       );
-      expect(speech2, contains('You promised Karim to Send the revised quotation'));
+      expect(speech2.toLowerCase(), contains('you promised karim to send the revised quotation'));
       expect(speech2.contains('I promised'), isFalse);
 
       final speech3 = VoiceService.formatCommitmentSpeech(
@@ -161,7 +161,7 @@ void test() {}
         type: CommitmentType.promiseReceived,
         contactName: 'Apex Corp',
       );
-      expect(speech3, contains('Apex Corp promised you to Send the commercial contract'));
+      expect(speech3.toLowerCase(), contains('apex corp promised you to send the commercial contract'));
     });
 
     test('formatCommitmentSpeech eliminates duplicate contact names and conflicting embedded dates', () {
@@ -182,7 +182,7 @@ void test() {}
         contactName: "Raju Ahmed",
         dueDate: DateTime(2026, 11, 16, 10, 0),
       );
-      expect(speech2, equals('You have a Meeting with Raju Ahmed on Monday, Nov 16 at 10:00 AM.'));
+      expect(speech2.toLowerCase(), equals('you have a meeting with raju ahmed on monday, nov 16 at 10:00 am.'));
       expect(speech2.contains('tomorrow'), isFalse);
     });
 

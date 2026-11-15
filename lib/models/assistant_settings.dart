@@ -9,7 +9,7 @@ enum AssistantTone {
   const AssistantTone(this.label, this.description);
 }
 
-/// Preferred communication language for Dummy. responses.
+/// Preferred communication language for RemembrAI responses.
 enum AssistantLanguage {
   english('English', 'Respond strictly in English'),
   bangla('বাংলা', 'বাংলা ভাষায় সম্পূর্ণ উত্তর দিন'),

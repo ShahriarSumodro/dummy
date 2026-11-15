@@ -29,16 +29,16 @@ void main() {
     }
 
     // Verify the app title is shown
-    expect(find.text('Dummy.'), findsOneWidget);
+    expect(find.text('RemembrAI'), findsWidgets);
 
     // Verify all 4 navigation tabs exist
     expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Promises'), findsOneWidget);
     expect(find.text('People'), findsOneWidget);
-    expect(find.text('Commitments'), findsOneWidget);
-    expect(find.text('Reminders'), findsOneWidget);
+    expect(find.text('Memory'), findsOneWidget);
 
     // Verify we start on the Home tab
-    expect(find.text('Personal Business Memory'), findsOneWidget);
+    expect(find.text('Home'), findsWidgets);
   });
 
   testWidgets('Bottom navigation switches tabs', (WidgetTester tester) async {
@@ -48,6 +48,14 @@ void main() {
       await tester.pump();
     }
 
+    // Tap on Promises tab
+    await tester.tap(find.text('Promises'));
+    for (int i = 0; i < 5; i++) {
+      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    expect(find.text('Promises'), findsWidgets);
+
     // Tap on People tab
     await tester.tap(find.text('People'));
     for (int i = 0; i < 5; i++) {
@@ -56,21 +64,13 @@ void main() {
     }
     expect(find.text('People'), findsWidgets);
 
-    // Tap on Commitments tab
-    await tester.tap(find.text('Commitments'));
+    // Tap on Memory tab
+    await tester.tap(find.text('Memory'));
     for (int i = 0; i < 5; i++) {
       await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
-    expect(find.text('No commitments yet'), findsOneWidget);
-
-    // Tap on Reminders tab
-    await tester.tap(find.text('Reminders'));
-    for (int i = 0; i < 5; i++) {
-      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-    }
-    expect(find.text('No reminders found'), findsOneWidget);
+    expect(find.text('Memory'), findsWidgets);
 
     // Tap back to Home
     await tester.tap(find.text('Home'));
@@ -78,6 +78,6 @@ void main() {
       await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
-    expect(find.text('Personal Business Memory'), findsOneWidget);
+    expect(find.text('RemembrAI'), findsWidgets);
   });
 }

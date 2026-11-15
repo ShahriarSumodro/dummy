@@ -209,7 +209,7 @@ class _MultiParticipantResolutionScreenState
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              'Dummy. detected ${_editList.length} distinct people in this discussion. Tell me who they are and what they do to personalize your commitments.',
+                              'RemembrAI detected ${_editList.length} distinct people in this discussion. Tell me who they are and what they do to personalize your commitments.',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.muted(context),

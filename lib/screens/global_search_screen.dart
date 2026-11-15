@@ -107,7 +107,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               ? Center(
                   child: AppEmptyState(
                     icon: Icons.search_rounded,
-                    title: 'Search everything in Dummy.',
+                    title: 'Search everything in RemembrAI',
                     message: 'Find contacts, promises, meeting notes, companies, or commitments by keyword.',
                   ),
                 )

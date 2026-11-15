@@ -121,7 +121,7 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'This simulator demonstrates the event abstraction between the Dummy. core engine and future wearable wristbands, smart watches, or portable AI pins.',
+                        'This simulator demonstrates the event abstraction between the RemembrAI core engine and future wearable wristbands, smart watches, or portable AI companions.',
                         style: TextStyle(fontSize: 12, color: AppColors.muted(context)),
                       ),
                     ],
@@ -181,7 +181,7 @@ class _HardwareCompanionScreenState extends State<HardwareCompanionScreen> {
                         Icon(Icons.shield_moon_outlined, color: Colors.white38, size: 36),
                         SizedBox(height: 8),
                         Text(
-                          'Dummy. Pin\nStandby',
+                          'RemembrAI Companion\nStandby',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white54,

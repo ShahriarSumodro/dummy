@@ -205,7 +205,7 @@ class GroqAiService implements AiService {
 
     final systemInstruction =
         '''
-You are Dummy., the user's executive personal business assistant.
+You are RemembrAI, the user's personal AI companion and executive memory assistant.
 Analyze user notes or conversation transcripts to extract commitments, promises, contacts, and reminders.
 
 Rules:
@@ -364,7 +364,7 @@ class GeminiAiService implements AiService {
 
     final systemInstruction =
         '''
-You are Dummy., the user's executive personal business assistant.
+You are RemembrAI, the user's personal AI companion and executive memory assistant.
 Analyze user notes or conversation transcripts to extract commitments, promises, contacts, and reminders.
 
 Rules:
@@ -714,6 +714,29 @@ class MockAiService implements AiService {
             role: 'Discussion Participant',
           ),
         );
+      }
+    }
+
+    // Detect mentioned names/contacts (e.g. "call with Karim from Apex Corp", "meeting with Raju")
+    if (contacts.isEmpty) {
+      final nameMatch = RegExp(
+        r'\b(?:call with|meeting with|spoke with|talked with|promised|with)\s+([A-Z][a-zA-Z]+)(?:\s+(?:from|at)\s+([A-Z][a-zA-Z\s]+))?',
+        caseSensitive: false,
+      ).firstMatch(cleanedText);
+      if (nameMatch != null) {
+        final extractedName = nameMatch.group(1)!.trim();
+        final extractedCompany = nameMatch.group(2)?.trim();
+        if (!['person', 'speaker', 'someone', 'him', 'her', 'them', 'the'].contains(extractedName.toLowerCase())) {
+          matchedContactName ??= extractedName;
+          contacts.add(
+            ExtractedContact(
+              name: extractedName,
+              company: extractedCompany,
+              isUnresolved: false,
+              detectedContext: 'Mentioned in note: ${cleanedText.length > 50 ? "${cleanedText.substring(0, 50)}..." : cleanedText}',
+            ),
+          );
+        }
       }
     }
 

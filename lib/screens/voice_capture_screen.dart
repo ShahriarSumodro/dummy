@@ -22,7 +22,7 @@ import 'multi_participant_resolution_screen.dart';
 enum _CaptureMode { meeting, dictation }
 
 /// Deliberate Voice Capture & Real-time AI Voice Decoder Screen.
-/// Users speak naturally, Dummy. transcribes, decodes commitments/tasks/follow-ups,
+/// Users speak naturally, RemembrAI transcribes, decodes commitments/tasks/follow-ups,
 /// and automatically sets them up into SQLite with scheduled push notifications and voice feedback.
 class VoiceCaptureScreen extends StatefulWidget {
   const VoiceCaptureScreen({super.key});
@@ -612,7 +612,7 @@ $body''';
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Speak naturally about your calls, follow-ups, promises, or meetings. Dummy. will decode what you owe and what others owe you.',
+                    'Speak naturally about your calls, follow-ups, promises, or meetings. RemembrAI will decode what you owe and what others owe you.',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -795,7 +795,7 @@ $body''';
                             : '● Listening ($minutes:$seconds)... Speak now')
                       : (_mode == _CaptureMode.meeting
                             ? 'Tap microphone to record the meeting'
-                            : 'Tap microphone to speak with Dummy.'),
+                            : 'Tap microphone to speak with RemembrAI'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,

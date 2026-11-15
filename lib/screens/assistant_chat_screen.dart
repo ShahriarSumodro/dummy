@@ -46,6 +46,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
   bool _isThinking = false;
   bool _isListening = false;
   bool _speechAvailable = false;
+  bool _isLoadingHistory = true;
 
   static const _sampleQuestions = [
     'What commitments are pending?',
@@ -57,14 +58,56 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
   @override
   void initState() {
     super.initState();
-    _messages.add(
-      _ChatMessage(
-        text:
-            'Hello! I am your personal business memory assistant. Ask me anything about your contacts, commitments, meetings, or promises.',
-        isUser: false,
-        suggestedNextActions: _sampleQuestions,
-      ),
-    );
+    _loadChatHistory();
+  }
+
+  Future<void> _loadChatHistory() async {
+    try {
+      final stored = await _db.getChatMessages(limit: 60);
+      if (mounted) {
+        setState(() {
+          if (stored.isNotEmpty) {
+            _messages.clear();
+            for (final m in stored) {
+              _messages.add(
+                _ChatMessage(
+                  text: m['text'] as String,
+                  isUser: m['is_user'] as bool,
+                  sourceReferences: List<String>.from(m['source_references'] ?? []),
+                  suggestedNextActions: List<String>.from(m['suggested_next_actions'] ?? []),
+                  timestamp: DateTime.tryParse(m['timestamp'] as String? ?? ''),
+                ),
+              );
+            }
+          } else {
+            _messages.add(
+              _ChatMessage(
+                text:
+                    'Hello! I am RemembrAI, your personal AI companion. Ask me anything about your contacts, commitments, or schedule — or just chat naturally.',
+                isUser: false,
+                suggestedNextActions: _sampleQuestions,
+              ),
+            );
+          }
+          _isLoadingHistory = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _messages.add(
+            _ChatMessage(
+              text:
+                  'Hello! I am RemembrAI, your personal AI companion. Ask me anything about your contacts, commitments, or schedule — or just chat naturally.',
+              isUser: false,
+              suggestedNextActions: _sampleQuestions,
+            ),
+          );
+          _isLoadingHistory = false;
+        });
+      }
+    }
 
     if (widget.initialQuery != null) {
       _sendQuery(widget.initialQuery!);
@@ -164,6 +207,11 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     });
     _scrollToBottom();
 
+    // Persist user message to SQLite
+    try {
+      await _db.insertChatMessage(text: cleanQuery, isUser: true);
+    } catch (_) {}
+
     try {
       final history = _messages
           .map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text})
@@ -182,6 +230,16 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
           );
         });
 
+        // Persist companion response to SQLite
+        try {
+          await _db.insertChatMessage(
+            text: response.answer,
+            isUser: false,
+            sourceReferences: response.sourceReferences,
+            suggestedNextActions: response.suggestedNextActions,
+          );
+        } catch (_) {}
+
         // Automatically speak response if auto-speak setting is active
         try {
           final settings = await _db.getAssistantSettings();
@@ -192,18 +250,62 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errorText = 'Unable to query companion: $e';
         setState(() {
           _messages.add(
             _ChatMessage(
-              text: 'Unable to query memory: $e',
+              text: errorText,
               isUser: false,
             ),
           );
         });
+        try {
+          await _db.insertChatMessage(text: errorText, isUser: false);
+        } catch (_) {}
       }
     } finally {
       if (mounted) setState(() => _isThinking = false);
       _scrollToBottom();
+    }
+  }
+
+  Future<void> _confirmClearConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Conversation?'),
+        content: const Text(
+          'This will clear your current chat history. Your saved contacts, commitments, and meetings will remain safe.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      AppHaptics.mediumImpact();
+      _voiceService.stop();
+      await _db.clearChatMessages();
+      setState(() {
+        _messages.clear();
+        _messages.add(
+          _ChatMessage(
+            text:
+                'Hello! I am RemembrAI, your personal AI companion. How can I help you right now?',
+            isUser: false,
+            suggestedNextActions: _sampleQuestions,
+          ),
+        );
+      });
     }
   }
 
@@ -225,7 +327,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
               child: const Icon(Icons.psychology_rounded, size: 18, color: AppColors.primary),
             ),
             const SizedBox(width: AppSpacing.xs),
-            const Text('Memory Assistant', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const Text('RemembrAI Companion', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ],
         ),
         actions: [
@@ -244,21 +346,8 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'New Conversation Session',
-            onPressed: () {
-              AppHaptics.lightImpact();
-              _voiceService.stop();
-              setState(() {
-                _messages.clear();
-                _messages.add(
-                  _ChatMessage(
-                    text: 'Session restarted. What would you like to review or plan?',
-                    isUser: false,
-                    suggestedNextActions: _sampleQuestions,
-                  ),
-                );
-              });
-            },
+            tooltip: 'Clear Conversation',
+            onPressed: _confirmClearConversation,
           ),
           const SizedBox(width: AppSpacing.xs),
         ],

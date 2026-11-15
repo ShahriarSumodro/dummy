@@ -242,7 +242,7 @@ class NotificationService {
   Future<void> showTestNotification() async {
     await showNotification(
       id: 9999,
-      title: '🔔 Dummy. Active',
+      title: '🔔 RemembrAI Active',
       body: 'Push notifications are connected! Your business commitments & follow-ups will alert you right on schedule.',
       payload: 'test_notification',
     );
