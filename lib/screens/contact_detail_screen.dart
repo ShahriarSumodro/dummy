@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/contact.dart';
 import '../models/commitment.dart';
 import '../models/interaction.dart';
+import '../models/memory_item.dart';
 import '../services/database_service.dart';
 import '../theme/app_haptics.dart';
 import '../theme/design_tokens.dart';
@@ -12,6 +13,7 @@ import 'contact_form_screen.dart';
 import 'commitment_form_screen.dart';
 import 'commitment_detail_screen.dart';
 import 'briefing_screen.dart';
+import 'memories_screen.dart';
 
 /// Detail screen for a single contact.
 /// Executive view showing contact metadata, touchpoint health, quick communication
@@ -30,6 +32,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
   Contact? _contact;
   List<Commitment> _commitments = [];
   List<Interaction> _interactions = [];
+  List<MemoryItem> _memories = [];
   bool _loading = true;
 
   @override
@@ -42,11 +45,13 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     final contact = await _db.getContact(widget.contactId);
     final commitments = await _db.getCommitmentsForContact(widget.contactId);
     final interactions = await _db.getInteractions(contactId: widget.contactId, limit: 40);
+    final memories = await _db.getAllMemories(contactId: widget.contactId);
     if (mounted) {
       setState(() {
         _contact = contact;
         _commitments = commitments;
         _interactions = interactions;
+        _memories = memories;
         _loading = false;
       });
     }
@@ -438,6 +443,87 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Personal Context & Memories (Module 2) ──
+          AppSectionHeader(
+            title: 'Personal Context & Memories',
+            count: _memories.length,
+            actionLabel: 'Manage',
+            onAction: () async {
+              AppHaptics.lightImpact();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MemoriesScreen(
+                    filterContactId: contact.id,
+                    filterContactName: contact.name,
+                  ),
+                ),
+              );
+              _loadData();
+            },
+          ),
+          const SizedBox(height: AppSpacing.xs),
+
+          if (_memories.isEmpty)
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Icon(Icons.psychology_outlined, size: 20, color: AppColors.muted(context)),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'No facts or preferences recorded for ${contact.name} yet.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.muted(context),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      AppHaptics.lightImpact();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MemoriesScreen(
+                            filterContactId: contact.id,
+                            filterContactName: contact.name,
+                          ),
+                        ),
+                      );
+                      _loadData();
+                    },
+                    child: const Text('Add Memory'),
+                  ),
+                ],
+              ),
+            )
+          else
+            ..._memories.take(3).map((m) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: AppCard(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppBadge(
+                          label: m.category.label,
+                          variant: AppBadgeVariant.neutral,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            m.content,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
           const SizedBox(height: AppSpacing.lg),
 
           // ── Commitments Section ──

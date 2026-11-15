@@ -11,6 +11,7 @@ import '../models/meeting.dart';
 import '../models/action_draft.dart';
 import '../models/interaction.dart';
 import '../models/assistant_settings.dart';
+import '../models/memory_item.dart';
 import 'notification_service.dart';
 
 /// Central database service. Singleton — one instance for the whole app.
@@ -223,6 +224,22 @@ class DatabaseService {
       )
     ''');
 
+    // 10. Persistent Personal & Business Memories (Module 2)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS memories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL DEFAULT 'fact',
+        content TEXT NOT NULL,
+        contact_id INTEGER,
+        source TEXT NOT NULL DEFAULT 'user_stated',
+        confidence REAL NOT NULL DEFAULT 1.0,
+        is_verified INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE SET NULL
+      )
+    ''');
+
     // Indexes
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_commitments_status ON commitments (status)',
@@ -250,6 +267,15 @@ class DatabaseService {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages (timestamp)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memories_category ON memories (category)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memories_contact ON memories (contact_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories (created_at)',
     );
 
     // Migrations for existing installs
@@ -784,9 +810,18 @@ class DatabaseService {
     final commitments = await getAllCommitments();
     final meetings = await getAllMeetings();
     final reminders = await getAllReminders(statusFilter: 'pending');
+    final memories = await getAllMemories(limit: 50);
 
     final buffer = StringBuffer();
     buffer.writeln('=== CURRENT PERSONAL BUSINESS MEMORY CONTEXT ===');
+
+    if (memories.isNotEmpty) {
+      buffer.writeln('\n-- STORED KNOWLEDGE & PREFERENCES (${memories.length}) --');
+      for (final mem in memories) {
+        final personStr = mem.contactName != null ? ' (re: ${mem.contactName})' : '';
+        buffer.writeln('- [${mem.category.label}]$personStr: ${mem.content}');
+      }
+    }
 
     buffer.writeln('\n-- CONTACTS & PEOPLE (${contacts.length}) --');
     for (final c in contacts) {
@@ -1021,6 +1056,88 @@ class DatabaseService {
   }
 
   // ─────────────────────────────────────────────
+  //  PERSONAL & BUSINESS MEMORIES (MODULE 2)
+  // ─────────────────────────────────────────────
+
+  Future<int> insertMemory(MemoryItem memory) async {
+    final db = await database;
+    return await db.insert('memories', memory.toMap());
+  }
+
+  Future<int> updateMemory(MemoryItem memory) async {
+    final db = await database;
+    return await db.update(
+      'memories',
+      memory.toMap(),
+      where: 'id = ?',
+      whereArgs: [memory.id],
+    );
+  }
+
+  Future<int> deleteMemory(int id) async {
+    final db = await database;
+    return await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<MemoryItem?> getMemory(int id) async {
+    final db = await database;
+    final results = await db.rawQuery('''
+      SELECT m.*, c.name as contact_name
+      FROM memories m
+      LEFT JOIN contacts c ON m.contact_id = c.id
+      WHERE m.id = ?
+    ''', [id]);
+    if (results.isEmpty) return null;
+    return MemoryItem.fromMap(results.first);
+  }
+
+  Future<List<MemoryItem>> getAllMemories({
+    String? category,
+    int? contactId,
+    String? searchQuery,
+    int limit = 100,
+  }) async {
+    final db = await database;
+    final whereClauses = <String>[];
+    final whereArgs = <dynamic>[];
+
+    if (category != null && category.isNotEmpty && category != 'all') {
+      whereClauses.add('m.category = ?');
+      whereArgs.add(category);
+    }
+
+    if (contactId != null) {
+      whereClauses.add('m.contact_id = ?');
+      whereArgs.add(contactId);
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      whereClauses.add('(m.content LIKE ? OR c.name LIKE ?)');
+      whereArgs.add('%${searchQuery.trim()}%');
+      whereArgs.add('%${searchQuery.trim()}%');
+    }
+
+    final whereSql = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
+
+    final results = await db.rawQuery('''
+      SELECT m.*, c.name as contact_name
+      FROM memories m
+      LEFT JOIN contacts c ON m.contact_id = c.id
+      $whereSql
+      ORDER BY m.created_at DESC
+      LIMIT ?
+    ''', [...whereArgs, limit]);
+
+    return results.map((row) => MemoryItem.fromMap(row)).toList();
+  }
+
+  Future<int> countMemories() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM memories');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // ─────────────────────────────────────────────
   //  FULL DATA EXPORT & BACKUP
   // ─────────────────────────────────────────────
 
@@ -1031,6 +1148,7 @@ class DatabaseService {
     final organizations = await getAllOrganizations();
     final meetings = await getAllMeetings();
     final drafts = await getAllActionDrafts();
+    final memories = await getAllMemories();
 
     return {
       'exported_at': DateTime.now().toIso8601String(),
@@ -1041,11 +1159,13 @@ class DatabaseService {
       'organizations': organizations.map((o) => o.toMap()).toList(),
       'meetings': meetings.map((m) => m.toMap()).toList(),
       'action_drafts': drafts.map((d) => d.toMap()).toList(),
+      'memories': memories.map((m) => m.toMap()).toList(),
     };
   }
 
   Future<void> clearAllData() async {
     final db = await database;
+    await db.delete('memories');
     await db.delete('chat_messages');
     await db.delete('action_drafts');
     await db.delete('reminders');
@@ -1247,6 +1367,18 @@ class DatabaseService {
         for (final item in json['action_drafts'] as List) {
           await txn.insert(
             'action_drafts',
+            item as Map<String, dynamic>,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          importedRecords++;
+        }
+      }
+
+      // 7. Personal & Business Memories
+      if (json['memories'] is List) {
+        for (final item in json['memories'] as List) {
+          await txn.insert(
+            'memories',
             item as Map<String, dynamic>,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );

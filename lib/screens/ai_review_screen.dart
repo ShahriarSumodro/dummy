@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/ai_extraction_result.dart';
 import '../models/commitment.dart';
+import '../models/memory_item.dart';
 import '../models/reminder.dart';
 import '../services/database_service.dart';
 import '../theme/app_haptics.dart';
@@ -83,6 +84,25 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
         await _db.insertReminder(reminder);
       }
 
+      // 4. Save approved memories (Module 2)
+      for (final em in _result.memories.where((m) => m.isSelected)) {
+        int? linkedContactId = em.matchedContactId;
+        if (linkedContactId == null && em.contactName != null) {
+          linkedContactId = contactIdMap[em.contactName!.toLowerCase()];
+        }
+
+        final memory = MemoryItem(
+          category: MemoryCategory.fromString(em.category),
+          content: em.content,
+          contactId: linkedContactId,
+          source: 'extracted_note',
+          confidence: em.confidence,
+          isVerified: true,
+        );
+
+        await _db.insertMemory(memory);
+      }
+
       if (mounted) {
         AppHaptics.success();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,6 +139,7 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
     final selectedCommitmentsCount = _result.commitments.where((c) => c.isSelected).length;
     final selectedContactsCount = _result.contacts.where((c) => c.isSelected).length;
     final selectedRemindersCount = _result.reminders.where((r) => r.isSelected).length;
+    final selectedMemoriesCount = _result.memories.where((m) => m.isSelected).length;
 
     return Scaffold(
       backgroundColor: AppColors.background(context),
@@ -300,6 +321,76 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
                   const SizedBox(height: AppSpacing.md),
                 ],
 
+                // ── Personal & Business Facts Section (Module 2) ──
+                if (_result.memories.isNotEmpty) ...[
+                  AppSectionHeader(
+                    title: 'Personal & Business Facts',
+                    count: _result.memories.length,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  ..._result.memories.map((mem) => AppCard(
+                        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: mem.isSelected,
+                                  activeColor: AppColors.primary,
+                                  onChanged: (val) {
+                                    AppHaptics.lightImpact();
+                                    setState(() => mem.isSelected = val ?? false);
+                                  },
+                                ),
+                                DropdownButton<String>(
+                                  value: MemoryCategory.values
+                                          .any((c) => c.name == mem.category)
+                                      ? mem.category
+                                      : MemoryCategory.fact.name,
+                                  isDense: true,
+                                  underline: const SizedBox(),
+                                  items: MemoryCategory.values.map((cat) {
+                                    return DropdownMenuItem<String>(
+                                      value: cat.name,
+                                      child: AppBadge(
+                                        label: cat.label,
+                                        variant: AppBadgeVariant.neutral,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newCat) {
+                                    if (newCat != null) {
+                                      setState(() => mem.category = newCat);
+                                    }
+                                  },
+                                ),
+                                const Spacer(),
+                                if (mem.contactName != null)
+                                  AppBadge(
+                                    label: mem.contactName!,
+                                    variant: AppBadgeVariant.accent,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextFormField(
+                              initialValue: mem.content,
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                              decoration: const InputDecoration(
+                                labelText: 'Memory Fact / Preference',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (val) => mem.content = val,
+                            ),
+                          ],
+                        ),
+                      )),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+
                 // ── Contacts Section ──
                 if (_result.contacts.isNotEmpty) ...[
                   AppSectionHeader(
@@ -364,7 +455,15 @@ class _AiReviewScreenState extends State<AiReviewScreen> {
 
                 // Confirm and Save Button
                 AppButton(
-                  label: 'Confirm & Save ($selectedCommitmentsCount commitments, $selectedContactsCount contacts, $selectedRemindersCount reminders)',
+                  label: () {
+                    final parts = <String>[];
+                    if (selectedCommitmentsCount > 0) parts.add('$selectedCommitmentsCount commitments');
+                    if (selectedContactsCount > 0) parts.add('$selectedContactsCount contacts');
+                    if (selectedRemindersCount > 0) parts.add('$selectedRemindersCount reminders');
+                    if (selectedMemoriesCount > 0) parts.add('$selectedMemoriesCount memories');
+                    if (parts.isEmpty) return 'Confirm & Save';
+                    return 'Confirm & Save (${parts.join(', ')})';
+                  }(),
                   icon: Icons.check_circle_rounded,
                   fullWidth: true,
                   size: AppButtonSize.lg,

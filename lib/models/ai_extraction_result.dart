@@ -202,6 +202,47 @@ class ExtractedReminder {
   }
 }
 
+/// A personal or business memory fact parsed from conversation (Module 2).
+class ExtractedMemory {
+  String content;
+  String category;
+  String? contactName;
+  int? matchedContactId;
+  double confidence;
+  String? sourceExcerpt;
+  bool isSelected;
+
+  ExtractedMemory({
+    required this.content,
+    this.category = 'fact',
+    this.contactName,
+    this.matchedContactId,
+    this.confidence = 0.9,
+    this.sourceExcerpt,
+    this.isSelected = true,
+  });
+
+  factory ExtractedMemory.fromJson(Map<String, dynamic> json) {
+    return ExtractedMemory(
+      content: json['content'] as String? ?? json['text'] as String? ?? '',
+      category: json['category'] as String? ?? 'fact',
+      contactName: json['contact_name'] as String?,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.9,
+      sourceExcerpt: json['source_excerpt'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': content,
+      'category': category,
+      if (contactName != null) 'contact_name': contactName,
+      'confidence': confidence,
+      if (sourceExcerpt != null) 'source_excerpt': sourceExcerpt,
+    };
+  }
+}
+
 /// Complete extraction payload returned by an AI provider.
 class AiExtractionResult {
   final String rawInput;
@@ -209,6 +250,7 @@ class AiExtractionResult {
   final List<ExtractedContact> contacts;
   final List<ExtractedCommitment> commitments;
   final List<ExtractedReminder> reminders;
+  final List<ExtractedMemory> memories;
 
   AiExtractionResult({
     required this.rawInput,
@@ -216,10 +258,11 @@ class AiExtractionResult {
     required this.contacts,
     required this.commitments,
     required this.reminders,
-  });
+    List<ExtractedMemory>? memories,
+  }) : memories = memories ?? [];
 
   bool get isEmpty =>
-      contacts.isEmpty && commitments.isEmpty && reminders.isEmpty;
+      contacts.isEmpty && commitments.isEmpty && reminders.isEmpty && memories.isEmpty;
 
   bool get hasUnresolvedParticipants => contacts.any((c) => c.isPlaceholder);
 
@@ -245,6 +288,13 @@ class AiExtractionResult {
 
     for (final rm in reminders) {
       rm.title = rm.title.replaceAll(RegExp(RegExp.escape(oldPlaceholder), caseSensitive: false), newName);
+    }
+
+    for (final mem in memories) {
+      if (mem.contactName != null &&
+          mem.contactName!.trim().toLowerCase() == oldPlaceholder.trim().toLowerCase()) {
+        mem.contactName = newName;
+      }
     }
   }
 }

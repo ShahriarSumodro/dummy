@@ -249,9 +249,17 @@ If a mentioned person closely matches a known contact, reference their name.
    - "followUp": An action the user needs to follow up on.
    - "task": A general to-do item.
 
-8. Calculate exact ISO-8601 deadlines (due_date, remind_at) based on relative references like "tomorrow", "next Monday at 3pm", "in two days", or explicit dates like "16th of November at 3 PM".
+8. PERSONAL & BUSINESS MEMORIES (FACTS, PREFERENCES, HABITS, DECISIONS):
+   - Extract durable facts, personal preferences, project context, agreed decisions, or working habits into "memories".
+   - Examples:
+     * 'Karim prefers dark roast coffee without sugar' -> memory: {content: 'Prefers dark roast coffee without sugar', category: 'preference', contact_name: 'Karim'}
+     * 'Our mobile app MVP release target is end of next month' -> memory: {content: 'Mobile app MVP release target is end of next month', category: 'project'}
+     * 'Decided to use SQLite for offline storage' -> memory: {content: 'Decided to use SQLite for offline storage', category: 'decision'}
+   - Valid categories: 'fact', 'preference', 'project', 'experience', 'goal', 'decision', 'workingHabit', 'relationship'.
 
-9. Return strictly valid JSON conforming to this schema:
+9. Calculate exact ISO-8601 deadlines (due_date, remind_at) based on relative references like "tomorrow", "next Monday at 3pm", "in two days", or explicit dates like "16th of November at 3 PM".
+
+10. Return strictly valid JSON conforming to this schema:
 {
   "summary": "Brief 1-sentence recap of what was discussed",
   "contacts": [
@@ -284,6 +292,14 @@ If a mentioned person closely matches a known contact, reference their name.
       "recurring_rule": null,
       "confidence": 0.95,
       "source_excerpt": "verbatim text span"
+    }
+  ],
+  "memories": [
+    {
+      "content": "Normalized statement of fact, preference, habit, or context",
+      "category": "fact | preference | project | experience | goal | decision | workingHabit | relationship",
+      "contact_name": "Related person's name or null",
+      "confidence": 0.95
     }
   ]
 }
@@ -408,9 +424,17 @@ If a mentioned person closely matches a known contact, reference their name.
    - "followUp": An action the user needs to follow up on.
    - "task": A general to-do item.
 
-8. Calculate exact ISO-8601 deadlines (due_date, remind_at) based on relative references like "tomorrow", "next Monday at 3pm", "in two days", or explicit dates like "16th of November at 3 PM".
+8. PERSONAL & BUSINESS MEMORIES (FACTS, PREFERENCES, HABITS, DECISIONS):
+   - Extract durable facts, personal preferences, project context, agreed decisions, or working habits into "memories".
+   - Examples:
+     * 'Karim prefers dark roast coffee without sugar' -> memory: {content: 'Prefers dark roast coffee without sugar', category: 'preference', contact_name: 'Karim'}
+     * 'Our mobile app MVP release target is end of next month' -> memory: {content: 'Mobile app MVP release target is end of next month', category: 'project'}
+     * 'Decided to use SQLite for offline storage' -> memory: {content: 'Decided to use SQLite for offline storage', category: 'decision'}
+   - Valid categories: 'fact', 'preference', 'project', 'experience', 'goal', 'decision', 'workingHabit', 'relationship'.
 
-9. Return strictly valid JSON conforming to this schema:
+9. Calculate exact ISO-8601 deadlines (due_date, remind_at) based on relative references like "tomorrow", "next Monday at 3pm", "in two days", or explicit dates like "16th of November at 3 PM".
+
+10. Return strictly valid JSON conforming to this schema:
 {
   "summary": "Brief 1-sentence recap of what was discussed",
   "contacts": [
@@ -443,6 +467,14 @@ If a mentioned person closely matches a known contact, reference their name.
       "recurring_rule": null,
       "confidence": 0.95,
       "source_excerpt": "verbatim text span"
+    }
+  ],
+  "memories": [
+    {
+      "content": "Normalized statement of fact, preference, habit, or context",
+      "category": "fact | preference | project | experience | goal | decision | workingHabit | relationship",
+      "contact_name": "Related person's name or null",
+      "confidence": 0.95
     }
   ]
 }
@@ -844,38 +876,168 @@ class MockAiService implements AiService {
           : cleanTitle;
     }
 
-    // Extract commitments
-    commitments.add(
-      ExtractedCommitment(
-        title: normalizedTitle,
-        description: 'Auto-extracted from note: "$text"',
-        type: type,
-        dueDate: dueDate,
-        contactName: matchedContactName,
-        matchedContactId: matchedContactId,
-        confidence: 0.95,
-        sourceExcerpt: text,
-      ),
-    );
+    // ─────────────────────────────────────────────
+    // EXTRACT PERSONAL & BUSINESS MEMORIES (MODULE 2)
+    // ─────────────────────────────────────────────
+    final memories = <ExtractedMemory>[];
+    final sentences = cleanedText
+        .split(RegExp(r'[.!?;]+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
 
-    // Auto-suggest reminder if deadline exists
-    if (dueDate != null) {
-      reminders.add(
-        ExtractedReminder(
-          title: 'Reminder: $normalizedTitle',
-          remindAt: dueDate.subtract(const Duration(hours: 2)),
+    for (final sentence in sentences) {
+      final sLower = sentence.toLowerCase();
+
+      // Personal Preference
+      if (sLower.contains('prefers ') ||
+          sLower.contains('likes ') ||
+          sLower.contains('dislikes ') ||
+          sLower.contains('favorite ') ||
+          sLower.contains('favourite ') ||
+          sLower.contains('fond of ') ||
+          sLower.contains('loves ') ||
+          sLower.contains('hates ') ||
+          sLower.contains('enjoys ')) {
+        memories.add(ExtractedMemory(
+          content: sentence,
+          category: 'preference',
+          contactName: matchedContactName,
+          matchedContactId: matchedContactId,
+          confidence: 0.95,
+          sourceExcerpt: sentence,
+        ));
+      }
+      // Project & Work Context
+      else if (sLower.contains('project ') ||
+          sLower.contains('launch ') ||
+          sLower.contains('milestone ') ||
+          sLower.contains('sprint ') ||
+          sLower.contains('target ') ||
+          sLower.contains('release ') ||
+          sLower.contains('budget ') ||
+          sLower.contains('roadmap ')) {
+        memories.add(ExtractedMemory(
+          content: sentence,
+          category: 'project',
+          contactName: matchedContactName,
+          matchedContactId: matchedContactId,
+          confidence: 0.95,
+          sourceExcerpt: sentence,
+        ));
+      }
+      // Agreed Decision
+      else if (sLower.contains('decided to ') ||
+          sLower.contains('agreed to ') ||
+          sLower.contains('decision:') ||
+          sLower.contains('agreed on ') ||
+          sLower.contains('we decided')) {
+        memories.add(ExtractedMemory(
+          content: sentence,
+          category: 'decision',
+          contactName: matchedContactName,
+          matchedContactId: matchedContactId,
+          confidence: 0.95,
+          sourceExcerpt: sentence,
+        ));
+      }
+      // Working habit & Routine
+      else if (sLower.contains('working hours') ||
+          sLower.contains('works late') ||
+          sLower.contains('routine') ||
+          sLower.contains('usually works') ||
+          sLower.contains('daily habit') ||
+          sLower.contains('night owl') ||
+          sLower.contains('early bird')) {
+        memories.add(ExtractedMemory(
+          content: sentence,
+          category: 'workingHabit',
+          contactName: matchedContactName,
+          matchedContactId: matchedContactId,
+          confidence: 0.95,
+          sourceExcerpt: sentence,
+        ));
+      }
+      // Relational & Biographical Facts
+      else if (sLower.contains('lives in ') ||
+          sLower.contains('based in ') ||
+          sLower.contains('born in ') ||
+          sLower.contains('graduated from ') ||
+          sLower.contains('wife ') ||
+          sLower.contains('husband ') ||
+          sLower.contains('brother ') ||
+          sLower.contains('sister ') ||
+          sLower.contains('works as ') ||
+          sLower.contains('speaks ')) {
+        memories.add(ExtractedMemory(
+          content: sentence,
+          category: 'fact',
+          contactName: matchedContactName,
+          matchedContactId: matchedContactId,
+          confidence: 0.95,
+          sourceExcerpt: sentence,
+        ));
+      }
+    }
+
+    final hasActionVerb = lower.contains('call') ||
+        lower.contains('send') ||
+        lower.contains('deliver') ||
+        lower.contains('email') ||
+        lower.contains('prepare') ||
+        lower.contains('review') ||
+        lower.contains('finish') ||
+        lower.contains('schedule') ||
+        lower.contains('meeting') ||
+        lower.contains('appointment') ||
+        lower.contains('promise') ||
+        lower.contains('revised') ||
+        lower.contains('quotation') ||
+        lower.contains('invoice') ||
+        lower.contains('contract') ||
+        lower.contains('follow up') ||
+        lower.contains('follow-up') ||
+        lower.contains('submit') ||
+        dueDate != null;
+
+    if (hasActionVerb || memories.isEmpty) {
+      commitments.add(
+        ExtractedCommitment(
+          title: normalizedTitle,
+          description: 'Auto-extracted from note: "$text"',
+          type: type,
+          dueDate: dueDate,
+          contactName: matchedContactName,
+          matchedContactId: matchedContactId,
           confidence: 0.95,
           sourceExcerpt: text,
         ),
       );
+
+      // Auto-suggest reminder if deadline exists
+      if (dueDate != null) {
+        reminders.add(
+          ExtractedReminder(
+            title: 'Reminder: $normalizedTitle',
+            remindAt: dueDate.subtract(const Duration(hours: 2)),
+            confidence: 0.95,
+            sourceExcerpt: text,
+          ),
+        );
+      }
     }
+
+    final summaryText = memories.isNotEmpty && commitments.isEmpty
+        ? 'Captured personal memory and contextual facts.'
+        : 'Extracted commitments and follow-ups from your input.';
 
     return AiExtractionResult(
       rawInput: text,
-      summary: 'Extracted commitments and follow-ups from your input.',
+      summary: summaryText,
       contacts: contacts,
       commitments: commitments,
       reminders: reminders,
+      memories: memories,
     );
   }
 }
@@ -889,6 +1051,7 @@ AiExtractionResult _parseExtractionJson(
   final rawContacts = json['contacts'] as List? ?? [];
   final rawCommitments = json['commitments'] as List? ?? [];
   final rawReminders = json['reminders'] as List? ?? [];
+  final rawMemories = json['memories'] as List? ?? [];
 
   final contacts = rawContacts
       .map((c) => ExtractedContact.fromJson(c as Map<String, dynamic>))
@@ -923,11 +1086,27 @@ AiExtractionResult _parseExtractionJson(
       .map((r) => ExtractedReminder.fromJson(r as Map<String, dynamic>))
       .toList();
 
+  final memories = rawMemories.map((m) {
+    final item = ExtractedMemory.fromJson(m as Map<String, dynamic>);
+    if (item.contactName != null) {
+      for (final existing in existingContacts) {
+        if (existing.name.toLowerCase().contains(
+          item.contactName!.toLowerCase(),
+        )) {
+          item.matchedContactId = existing.id;
+          break;
+        }
+      }
+    }
+    return item;
+  }).toList();
+
   return AiExtractionResult(
     rawInput: rawInput,
     summary: summary,
     contacts: contacts,
     commitments: commitments,
     reminders: reminders,
+    memories: memories,
   );
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 import '../theme/app_haptics.dart';
 import '../widgets/widgets.dart';
+import 'memories_screen.dart';
 import 'meetings_screen.dart';
 import 'meeting_form_screen.dart';
 import 'action_drafts_screen.dart';
@@ -31,7 +32,7 @@ class MemoryHubScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Business Memory'),
+        title: const Text('Memory Hub'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded),
@@ -118,6 +119,17 @@ class MemoryHubScreen extends StatelessWidget {
             padding: EdgeInsets.zero,
             child: Column(
               children: [
+                _HubRow(
+                  icon: Icons.psychology_outlined,
+                  iconColor: isDark ? AppColors.darkAccent : AppColors.lightAccent,
+                  title: 'Personal & Business Knowledge',
+                  subtitle: 'Preferences, facts, projects, goals & working habits',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MemoriesScreen()),
+                  ),
+                ),
+                const Divider(height: 1),
                 _HubRow(
                   icon: Icons.meeting_room_outlined,
                   iconColor: isDark ? AppColors.darkAccent : AppColors.lightAccent,
