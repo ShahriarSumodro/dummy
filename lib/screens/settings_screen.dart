@@ -65,7 +65,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: Text('${_selectedProvider.label} API key & provider saved.'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
         ),
       );
     }
@@ -78,7 +80,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: const Text('Please enter an API key first.'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
         ),
       );
       return;
@@ -98,7 +102,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text(msg),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         );
       }
@@ -110,7 +116,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text('Connection failed: $e'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         );
       }
@@ -142,33 +150,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
         titleSpacing: 0,
-        title: const Text('Settings & Configuration', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Settings & Configuration',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.xxl,
+              ),
               children: [
                 // ── AI Engine Section ──
                 AppSectionHeader(title: 'AI Provider & Engine'),
                 const SizedBox(height: AppSpacing.xs),
 
                 AppCard(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.offline_bolt_rounded, size: 20, color: _useMockMode ? AppColors.primary : Colors.grey),
+                          Icon(
+                            Icons.offline_bolt_rounded,
+                            size: 20,
+                            color: _useMockMode
+                                ? AppColors.primary
+                                : Colors.grey,
+                          ),
                           const SizedBox(width: AppSpacing.sm),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Offline Rule Engine', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              const Text(
+                                'Offline Rule Engine',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
                               Text(
                                 'Local heuristics without API key',
-                                style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.muted(context),
+                                ),
                               ),
                             ],
                           ),
@@ -230,19 +266,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         AppTextField(
                           controller: _apiKeyController,
                           label: '${_selectedProvider.label} API Key',
-                          hintText: _selectedProvider == AiProvider.groq ? 'gsk_...' : 'AIzaSy...',
+                          hintText: _selectedProvider == AiProvider.groq
+                              ? 'gsk_...'
+                              : 'AIzaSy...',
                           prefixIcon: Icons.key_rounded,
                           obscureText: _obscureKey,
                           suffixIcon: IconButton(
-                            icon: Icon(_obscureKey ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18),
-                            onPressed: () => setState(() => _obscureKey = !_obscureKey),
+                            icon: Icon(
+                              _obscureKey
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              size: 18,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscureKey = !_obscureKey),
                           ),
                           onChanged: (text) {
-                            if (text.startsWith('gsk_') && _selectedProvider != AiProvider.groq) {
-                              setState(() => _selectedProvider = AiProvider.groq);
+                            if (text.startsWith('gsk_') &&
+                                _selectedProvider != AiProvider.groq) {
+                              setState(
+                                () => _selectedProvider = AiProvider.groq,
+                              );
                               AiServiceFactory.setProvider(AiProvider.groq);
-                            } else if (text.startsWith('AIza') && _selectedProvider != AiProvider.gemini) {
-                              setState(() => _selectedProvider = AiProvider.gemini);
+                            } else if (text.startsWith('AIza') &&
+                                _selectedProvider != AiProvider.gemini) {
+                              setState(
+                                () => _selectedProvider = AiProvider.gemini,
+                              );
                               AiServiceFactory.setProvider(AiProvider.gemini);
                             } else {
                               setState(() {});
@@ -263,12 +313,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: AppButton(
-                                label: _isTestingConnection ? 'Testing...' : 'Test Connection',
+                                label: _isTestingConnection
+                                    ? 'Testing...'
+                                    : 'Test Connection',
                                 icon: Icons.bolt_rounded,
                                 size: AppButtonSize.sm,
                                 variant: AppButtonVariant.secondary,
                                 loading: _isTestingConnection,
-                                onPressed: _isTestingConnection ? null : _testConnection,
+                                onPressed: _isTestingConnection
+                                    ? null
+                                    : _testConnection,
                               ),
                             ),
                           ],
@@ -276,7 +330,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           'Keys remain encrypted strictly on your local device.',
-                          style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted(context),
+                          ),
                         ),
                       ],
                     ),
@@ -313,10 +370,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             selectedColor: AppColors.primary,
                             labelStyle: TextStyle(
                               fontSize: 12,
-                              fontWeight: isSel ? FontWeight.w600 : FontWeight.w500,
-                              color: isSel ? Colors.white : AppColors.foreground(context),
+                              fontWeight: isSel
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isSel
+                                  ? Colors.white
+                                  : AppColors.foreground(context),
                             ),
-                            onSelected: (_) => _updateSettings(_assistantSettings.copyWith(tone: t)),
+                            onSelected: (_) => _updateSettings(
+                              _assistantSettings.copyWith(tone: t),
+                            ),
                           );
                         }).toList(),
                       ),
@@ -342,10 +405,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             selectedColor: AppColors.primary,
                             labelStyle: TextStyle(
                               fontSize: 12,
-                              fontWeight: isSel ? FontWeight.w600 : FontWeight.w500,
-                              color: isSel ? Colors.white : AppColors.foreground(context),
+                              fontWeight: isSel
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isSel
+                                  ? Colors.white
+                                  : AppColors.foreground(context),
                             ),
-                            onSelected: (_) => _updateSettings(_assistantSettings.copyWith(proactivity: p)),
+                            onSelected: (_) => _updateSettings(
+                              _assistantSettings.copyWith(proactivity: p),
+                            ),
                           );
                         }).toList(),
                       ),
@@ -360,14 +429,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: const Icon(Icons.check_rounded, size: 18),
                           onPressed: () {
                             AppHaptics.success();
-                            _updateSettings(_assistantSettings.copyWith(
-                              userTitle: _userTitleController.text.trim(),
-                            ));
+                            _updateSettings(
+                              _assistantSettings.copyWith(
+                                userTitle: _userTitleController.text.trim(),
+                              ),
+                            );
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Text('User role saved.'),
                                 behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
+                                ),
                               ),
                             );
                           },
@@ -391,15 +466,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.notifications_active_outlined, size: 20, color: AppColors.primary),
+                              const Icon(
+                                Icons.notifications_active_outlined,
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
                               const SizedBox(width: AppSpacing.sm),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Device Push Alerts', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  const Text(
+                                    'Device Push Alerts',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                   Text(
                                     'Sound & vibration when promises are due',
-                                    style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.muted(context),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -409,7 +497,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             value: _assistantSettings.notificationsEnabled,
                             activeColor: AppColors.primary,
                             onChanged: (val) {
-                              _updateSettings(_assistantSettings.copyWith(notificationsEnabled: val));
+                              _updateSettings(
+                                _assistantSettings.copyWith(
+                                  notificationsEnabled: val,
+                                ),
+                              );
                             },
                           ),
                         ],
@@ -427,9 +519,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: const Text('Test alert sent! Check your notification tray.'),
+                                content: const Text(
+                                  'Test alert sent! Check your notification tray.',
+                                ),
                                 behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
+                                ),
                               ),
                             );
                           }
@@ -442,15 +540,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.record_voice_over_outlined, size: 20, color: AppColors.primary),
+                              const Icon(
+                                Icons.record_voice_over_outlined,
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
                               const SizedBox(width: AppSpacing.sm),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Auto-Speak AI Responses', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  const Text(
+                                    'Auto-Speak AI Responses',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                   Text(
                                     'Read chat answers aloud automatically',
-                                    style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.muted(context),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -460,7 +571,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             value: _assistantSettings.autoSpeakResponses,
                             activeColor: AppColors.primary,
                             onChanged: (val) {
-                              _updateSettings(_assistantSettings.copyWith(autoSpeakResponses: val));
+                              _updateSettings(
+                                _assistantSettings.copyWith(
+                                  autoSpeakResponses: val,
+                                ),
+                              );
                             },
                           ),
                         ],
@@ -468,7 +583,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: AppSpacing.sm),
                       Row(
                         children: [
-                          Text('Speed: ${_assistantSettings.speechRate.toStringAsFixed(1)}x', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          Text(
+                            'Speed: ${_assistantSettings.speechRate.toStringAsFixed(1)}x',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           Expanded(
                             child: Slider(
                               value: _assistantSettings.speechRate,
@@ -476,8 +597,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               max: 1.0,
                               divisions: 7,
                               activeColor: AppColors.primary,
-                              label: '${_assistantSettings.speechRate.toStringAsFixed(1)}x',
-                              onChanged: (val) => _updateSettings(_assistantSettings.copyWith(speechRate: val)),
+                              label:
+                                  '${_assistantSettings.speechRate.toStringAsFixed(1)}x',
+                              onChanged: (val) => _updateSettings(
+                                _assistantSettings.copyWith(speechRate: val),
+                              ),
                             ),
                           ),
                         ],
@@ -503,9 +627,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             builder: (context, state, _) {
                               if (state == TtsState.playing) {
                                 return Padding(
-                                  padding: const EdgeInsets.only(left: AppSpacing.xs),
+                                  padding: const EdgeInsets.only(
+                                    left: AppSpacing.xs,
+                                  ),
                                   child: IconButton(
-                                    icon: const Icon(Icons.stop_circle_rounded, color: AppColors.error),
+                                    icon: const Icon(
+                                      Icons.stop_circle_rounded,
+                                      color: AppColors.error,
+                                    ),
                                     onPressed: () => VoiceService().stop(),
                                   ),
                                 );
@@ -529,35 +658,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     children: [
                       AppListRow(
-                        leading: const Icon(Icons.watch_outlined, size: 20, color: AppColors.primary),
+                        leading: const Icon(
+                          Icons.watch_outlined,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
                         title: 'Wearable Companion Simulator',
-                        subtitle: 'Simulate hardware pin, wristband & haptic pulses',
-                        trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                        subtitle:
+                            'Simulate hardware pin, wristband & haptic pulses',
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
                         onTap: () {
                           AppHaptics.lightImpact();
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const HardwareCompanionScreen()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HardwareCompanionScreen(),
+                            ),
+                          );
                         },
                       ),
                       const Divider(height: 1),
                       AppListRow(
-                        leading: const Icon(Icons.security_outlined, size: 20, color: AppColors.primary),
+                        leading: const Icon(
+                          Icons.security_outlined,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
                         title: 'Data Privacy & Local Backup',
-                        subtitle: 'Export complete JSON backup or wipe local memory',
-                        trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                        subtitle:
+                            'Export complete JSON backup or wipe local memory',
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
                         onTap: () {
                           AppHaptics.lightImpact();
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const DataPrivacyScreen()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const DataPrivacyScreen(),
+                            ),
+                          );
                         },
                       ),
                       const Divider(height: 1),
                       AppListRow(
-                        leading: const Icon(Icons.auto_stories_outlined, size: 20, color: AppColors.primary),
+                        leading: const Icon(
+                          Icons.auto_stories_outlined,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
                         title: 'Executive Briefing Engine',
                         subtitle: 'Generate executive daily memos or dossiers',
-                        trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
                         onTap: () {
                           AppHaptics.lightImpact();
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const BriefingScreen()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const BriefingScreen(),
+                            ),
+                          );
                         },
                       ),
                     ],
@@ -569,7 +739,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Center(
                   child: Text(
                     'Dummy. v0.1.0 · Personal Executive Memory Assistant',
-                    style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.muted(context),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -595,7 +768,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.subtle(context),
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : AppColors.subtle(context),
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border(context),
@@ -607,14 +782,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, size: 16, color: isSelected ? AppColors.primary : AppColors.muted(context)),
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.muted(context),
+                ),
                 const SizedBox(width: 4),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: isSelected ? AppColors.primary : AppColors.foreground(context),
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.foreground(context),
                   ),
                 ),
               ],

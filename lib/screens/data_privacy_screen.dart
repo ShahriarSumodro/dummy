@@ -48,7 +48,9 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
     } catch (e) {
       if (mounted) {
         AppHaptics.warning();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -92,10 +94,14 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           AppHaptics.success();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Successfully restored $count records into your database!'),
+              content: Text(
+                'Successfully restored $count records into your database!',
+              ),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
           );
         }
@@ -107,7 +113,9 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
               content: Text('Failed to parse backup JSON: $e'),
               backgroundColor: AppColors.error,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
           );
         }
@@ -147,7 +155,9 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             content: const Text('All local database records have been erased.'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         );
         Navigator.pop(context);
@@ -161,7 +171,10 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
         titleSpacing: 0,
-        title: const Text('Data Privacy & Security', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Data Privacy & Security',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -174,7 +187,11 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 20),
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     const Text(
                       '100% Local Device Storage',
@@ -188,7 +205,11 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Dummy. is built privacy-first. All your contacts, promises, meeting notes, and reminders reside in an SQLite database on your device. No cloud sync is active without your explicit instruction.',
-                  style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.muted(context)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.muted(context),
+                  ),
                 ),
               ],
             ),
@@ -203,24 +224,45 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             child: Column(
               children: [
                 AppListRow(
-                  leading: const Icon(Icons.download_rounded, size: 20, color: AppColors.primary),
+                  leading: const Icon(
+                    Icons.download_rounded,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
                   title: 'Export Complete Memory (JSON)',
-                  subtitle: 'Backup all records to a portable JSON file on clipboard',
+                  subtitle:
+                      'Backup all records to a portable JSON file on clipboard',
                   trailing: _isExporting
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
                         )
-                      : const Icon(Icons.copy_rounded, size: 18, color: Colors.grey),
+                      : const Icon(
+                          Icons.copy_rounded,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
                   onTap: _isExporting ? null : _exportDataJson,
                 ),
                 const Divider(height: 1),
                 AppListRow(
-                  leading: const Icon(Icons.upload_file_rounded, size: 20, color: AppColors.primary),
+                  leading: const Icon(
+                    Icons.upload_file_rounded,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
                   title: 'Restore from Backup (JSON)',
-                  subtitle: 'Restore or merge records from a previous backup JSON',
-                  trailing: const Icon(Icons.restore_rounded, size: 18, color: Colors.grey),
+                  subtitle:
+                      'Restore or merge records from a previous backup JSON',
+                  trailing: const Icon(
+                    Icons.restore_rounded,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
                   onTap: _importDataJson,
                 ),
               ],
@@ -234,9 +276,14 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           AppCard(
             padding: EdgeInsets.zero,
             child: AppListRow(
-              leading: const Icon(Icons.delete_forever_rounded, color: AppColors.error, size: 22),
+              leading: const Icon(
+                Icons.delete_forever_rounded,
+                color: AppColors.error,
+                size: 22,
+              ),
               title: 'Erase All Personal Data',
-              subtitle: 'Permanently wipe all contacts, promises, meetings & settings',
+              subtitle:
+                  'Permanently wipe all contacts, promises, meetings & settings',
               onTap: _wipeAllData,
             ),
           ),
