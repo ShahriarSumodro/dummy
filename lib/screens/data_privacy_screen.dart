@@ -194,7 +194,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     const Text(
-                      '100% Local Device Storage',
+                      'Local-First Storage',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -204,7 +204,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Dummy. is built privacy-first. All your contacts, promises, meeting notes, and reminders reside in an SQLite database on your device. No cloud sync is active without your explicit instruction.',
+                  'Dummy. keeps your contacts, promises, meeting notes and reminders in a database on this phone. The database is not encrypted. If you add an AI key and allow cloud AI, short summaries (and meeting audio you choose to analyse) are sent to your AI provider. Nothing is synced anywhere else.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.5,

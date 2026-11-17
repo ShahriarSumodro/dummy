@@ -1,3 +1,4 @@
+import 'ai_capture_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/commitment.dart';
@@ -51,6 +52,40 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDashboardData();
   }
 
+  bool _looksLikeQuestion(String t) {
+    final s = t.trim().toLowerCase();
+
+    if (s.endsWith('?')) return true;
+
+    return RegExp(
+      r'^(what|when|who|whom|where|why|how|which|show|list|tell|summar|do i|did i|is |are |any |কি|কী|কখন|কে |কবে|কেন|কত)',
+    ).hasMatch(s);
+  }
+
+  void _handleQuickText(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return;
+
+    _quickChatController.clear();
+    AppHaptics.lightImpact();
+
+    if (_looksLikeQuestion(text)) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AssistantChatScreen(initialQuery: text),
+        ),
+      ).then((_) => _loadDashboardData());
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => AiCaptureSheet(initialText: text),
+      ).then((_) => _loadDashboardData());
+    }
+  }
+
   @override
   void dispose() {
     try {
@@ -70,8 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final sayDo = await _db.getSayDoAnalytics();
       final ratio = (sayDo['sayDoRatio'] as double? ?? 100.0).round();
 
-      final allCommitments =
-          await _db.getAllCommitments(statusFilter: 'pending');
+      final allCommitments = await _db.getAllCommitments(
+        statusFilter: 'pending',
+      );
       final urgent = allCommitments
           .where((c) => c.isOverdue || _isDueToday(c.dueDate))
           .take(5)
@@ -136,13 +172,15 @@ class _HomeScreenState extends State<HomeScreen> {
     buffer.write('Good day. Here is your Dummy. briefing. ');
     if (_overdueCount > 0) {
       buffer.write(
-          'You have $_overdueCount overdue promise${_overdueCount > 1 ? 's' : ''} requiring attention. ');
+        'You have $_overdueCount overdue promise${_overdueCount > 1 ? 's' : ''} requiring attention. ',
+      );
     } else {
       buffer.write('Zero overdue promises pending. ');
     }
     if (_todayCount > 0) {
       buffer.write(
-          'You have $_todayCount promise${_todayCount > 1 ? 's' : ''} scheduled today. ');
+        'You have $_todayCount promise${_todayCount > 1 ? 's' : ''} scheduled today. ',
+      );
     } else {
       buffer.write('No deliverables due today. ');
     }
@@ -156,7 +194,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       buffer.write('Priority item: $topSpeech ');
     }
-    buffer.write('You are tracking $_contactsCount contacts in your business network.');
+    buffer.write(
+      'You are tracking $_contactsCount contacts in your business network.',
+    );
     return buffer.toString();
   }
 
@@ -165,10 +205,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final primaryText =
-        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final secondaryText =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final primaryText = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.lightTextPrimary;
+    final secondaryText = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     return Scaffold(
       appBar: AppBar(
@@ -273,10 +315,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: (isDark
-                                        ? AppColors.darkAccent
-                                        : AppColors.lightAccent)
-                                    .withValues(alpha: 0.15),
+                                color:
+                                    (isDark
+                                            ? AppColors.darkAccent
+                                            : AppColors.lightAccent)
+                                        .withValues(alpha: 0.15),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -348,11 +391,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                   controller: _quickChatController,
                                   decoration: InputDecoration(
                                     hintText:
-                                        'Talk to Dummy. or log a follow-up...',
+                                        'Ask Dummy., or tell it a promise...',
                                     hintStyle: TextStyle(
                                       fontSize: 13,
-                                      color:
-                                          secondaryText.withValues(alpha: 0.8),
+                                      color: secondaryText.withValues(
+                                        alpha: 0.8,
+                                      ),
                                     ),
                                     border: InputBorder.none,
                                     isDense: true,
@@ -360,21 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       vertical: 12,
                                     ),
                                   ),
-                                  onSubmitted: (val) {
-                                    if (val.trim().isNotEmpty) {
-                                      final text = val.trim();
-                                      _quickChatController.clear();
-                                      AppHaptics.lightImpact();
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => AssistantChatScreen(
-                                            initialQuery: text,
-                                          ),
-                                        ),
-                                      ).then((_) => _loadDashboardData());
-                                    }
-                                  },
+                                  onSubmitted: _handleQuickText,
                                 ),
                               ),
                               IconButton(
@@ -386,29 +416,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? AppColors.darkAccent
                                     : AppColors.lightAccent,
                                 tooltip: 'Voice Note / Voice Chat',
-                                onPressed: () {
-                                  AppHaptics.lightImpact();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const VoiceCaptureScreen(),
-                                    ),
-                                  ).then((_) => _loadDashboardData());
-                                },
+                                onPressed: () =>
+                                    _handleQuickText(_quickChatController.text),
                               ),
                               IconButton(
-                                icon: const Icon(
-                                  Icons.send_rounded,
-                                  size: 18,
-                                ),
+                                icon: const Icon(Icons.send_rounded, size: 18),
                                 color: isDark
                                     ? AppColors.darkAccent
                                     : AppColors.lightAccent,
                                 tooltip: 'Send',
                                 onPressed: () {
-                                  final text =
-                                      _quickChatController.text.trim();
+                                  final text = _quickChatController.text.trim();
                                   if (text.isNotEmpty) {
                                     _quickChatController.clear();
                                     AppHaptics.lightImpact();
@@ -456,11 +474,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 color: isPlaying
                                     ? (isDark
-                                        ? AppColors.darkAccent
-                                        : AppColors.lightAccent)
+                                          ? AppColors.darkAccent
+                                          : AppColors.lightAccent)
                                     : (isDark
-                                        ? AppColors.darkSurface
-                                        : AppColors.lightSurface),
+                                          ? AppColors.darkSurface
+                                          : AppColors.lightSurface),
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isDark
@@ -477,8 +495,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: isPlaying
                                     ? Colors.white
                                     : (isDark
-                                        ? AppColors.darkTextPrimary
-                                        : AppColors.lightTextPrimary),
+                                          ? AppColors.darkTextPrimary
+                                          : AppColors.lightTextPrimary),
                               ),
                             ),
                             const SizedBox(width: AppSpacing.md),
@@ -530,10 +548,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       backgroundColor: isDark
                           ? AppColors.semanticRedDarkSubtle
                           : AppColors.semanticRedLight,
-                      borderColor: (isDark
-                              ? AppColors.semanticRedDark
-                              : AppColors.semanticRed)
-                          .withValues(alpha: 0.3),
+                      borderColor:
+                          (isDark
+                                  ? AppColors.semanticRedDark
+                                  : AppColors.semanticRed)
+                              .withValues(alpha: 0.3),
                       onTap: () {
                         AppHaptics.lightImpact();
                         Navigator.push(
@@ -600,8 +619,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: 'Overdue',
                           color: _overdueCount > 0
                               ? (isDark
-                                  ? AppColors.semanticRedDark
-                                  : AppColors.semanticRed)
+                                    ? AppColors.semanticRedDark
+                                    : AppColors.semanticRed)
                               : secondaryText,
                         ),
                         _Divider(),
@@ -610,11 +629,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: 'Say-Do',
                           color: _sayDoRatio >= 80
                               ? (isDark
-                                  ? AppColors.semanticGreenDark
-                                  : AppColors.semanticGreen)
+                                    ? AppColors.semanticGreenDark
+                                    : AppColors.semanticGreen)
                               : (isDark
-                                  ? AppColors.semanticAmberDark
-                                  : AppColors.semanticAmber),
+                                    ? AppColors.semanticAmberDark
+                                    : AppColors.semanticAmber),
                           onTap: () {
                             AppHaptics.lightImpact();
                             Navigator.push(
@@ -705,7 +724,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.zero,
                       child: Column(
                         children: [
-                          for (int i = 0; i < _urgentCommitments.length; i++) ...[
+                          for (
+                            int i = 0;
+                            i < _urgentCommitments.length;
+                            i++
+                          ) ...[
                             _CommitmentRow(
                               commitment: _urgentCommitments[i],
                               onTap: () async {
@@ -785,8 +808,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               reminder: _todayReminders[i],
                               onComplete: () async {
                                 AppHaptics.success();
-                                final updated = _todayReminders[i]
-                                    .copyWith(status: ReminderStatus.completed);
+                                final updated = _todayReminders[i].copyWith(
+                                  status: ReminderStatus.completed,
+                                );
                                 await _db.updateReminder(updated);
                                 _loadDashboardData();
                               },
@@ -876,20 +900,19 @@ class _CommitmentRow extends StatelessWidget {
   final Commitment commitment;
   final VoidCallback onTap;
 
-  const _CommitmentRow({
-    required this.commitment,
-    required this.onTap,
-  });
+  const _CommitmentRow({required this.commitment, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final primaryText =
-        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final secondaryText =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final primaryText = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.lightTextPrimary;
+    final secondaryText = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     AppBadge badge;
     if (commitment.isOverdue) {
@@ -966,20 +989,19 @@ class _ReminderRow extends StatelessWidget {
   final Reminder reminder;
   final VoidCallback onComplete;
 
-  const _ReminderRow({
-    required this.reminder,
-    required this.onComplete,
-  });
+  const _ReminderRow({required this.reminder, required this.onComplete});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final primaryText =
-        isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final secondaryText =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final primaryText = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.lightTextPrimary;
+    final secondaryText = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -987,7 +1009,9 @@ class _ReminderRow extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.circle_outlined, size: 20),
-            color: isDark ? AppColors.darkTextTertiary : AppColors.lightTextTertiary,
+            color: isDark
+                ? AppColors.darkTextTertiary
+                : AppColors.lightTextTertiary,
             tooltip: 'Mark Complete',
             onPressed: onComplete,
           ),

@@ -12,6 +12,7 @@
 
     <application
         android:label="Dummy."
+        android:allowBackup="false"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

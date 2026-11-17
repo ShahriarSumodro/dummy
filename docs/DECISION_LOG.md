@@ -42,16 +42,21 @@ All architectural, product, and technical decisions are recorded here.
 
 ---
 
+
 ## DEC-004: Navigation Structure — 4-Tab Bottom Navigation
 
 **Date:** 2024-11-13  
-**Decision:** Use a bottom navigation bar with 4 tabs: Home, People, Commitments, Reminders.  
+**Decision:** Use a bottom navigation bar with four primary destinations: Home, Promises, People, and Memory.
+
 **Rationale:**
-- Keeps the interface simple and focused on the core product.
-- Each tab maps to a primary user workflow.
-- Bottom nav is the standard Android pattern for top-level destinations.
-- 4 tabs is within Material Design guidelines (3-5 recommended).
+- Home provides an overview of important information and upcoming activities.
+- Promises centralizes commitments, obligations, and follow-ups.
+- People manages contacts and relationship context.
+- Memory provides access to stored personal information and contextual records.
+- Reminders, meetings, and drafts remain accessible through relevant screens rather than occupying separate primary navigation tabs.
+
 **Status:** Confirmed for MVP
+
 
 ---
 
@@ -65,13 +70,18 @@ All architectural, product, and technical decisions are recorded here.
 
 ---
 
+
 ## DEC-006: AI Extraction & Confirmation Architecture
 
 **Date:** 2024-11-13  
-**Decision:** Extract unstructured notes via `AiService` (Gemini API with offline fallback), always requiring an explicit user review screen before committing to SQLite.  
+**Decision:** Use AiService for extracting structured information from unstructured user input. Support cloud AI providers and local/mock fallback mechanisms where available.
+
 **Rationale:**
-- Directly satisfies the core philosophy: *Never silently turn an uncertain AI guess into a confirmed fact*.
-- Users maintain 100% control over their personal business memory records.
-- Architecture is decoupled via `AiService` interface, making model or vendor changes zero-cost.
-- `MockAiService` allows offline testing with zero API keys or external costs.
-**Status:** Implemented
+- Never silently turn an uncertain AI guess into a confirmed personal fact.
+- Extracted contacts, promises, reminders, and memories must follow the appropriate review and verification process.
+- Unverified memories must remain distinguishable from user-confirmed information.
+- Keep AI provider integrations modular to support future model and vendor changes.
+- MockAiService supports testing without API keys or external service costs.
+
+**Status:** Implemented, with verification safeguards
+

@@ -49,9 +49,15 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.meeting?.title ?? '');
-    _locationController = TextEditingController(text: widget.meeting?.location ?? '');
-    _notesController = TextEditingController(text: widget.meeting?.rawNotes ?? '');
-    _summaryController = TextEditingController(text: widget.meeting?.summary ?? '');
+    _locationController = TextEditingController(
+      text: widget.meeting?.location ?? '',
+    );
+    _notesController = TextEditingController(
+      text: widget.meeting?.rawNotes ?? '',
+    );
+    _summaryController = TextEditingController(
+      text: widget.meeting?.summary ?? '',
+    );
 
     if (widget.meeting != null) {
       _meetingDate = widget.meeting!.meetingDate;
@@ -67,10 +73,9 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
 
   Future<void> _checkConflicts(DateTime date) async {
     try {
-      final conflicts = await _db.checkScheduleConflicts(
-        date,
-        excludeMeetingId: widget.meeting?.id,
-      ).timeout(const Duration(seconds: 3), onTimeout: () => []);
+      final conflicts = await _db
+          .checkScheduleConflicts(date, excludeMeetingId: widget.meeting?.id)
+          .timeout(const Duration(seconds: 3), onTimeout: () => []);
       if (mounted) {
         setState(() => _conflicts = conflicts);
       }
@@ -170,15 +175,17 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
             content: const Text('Decisions and action items extracted!'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Extraction error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Extraction error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExtracting = false);
@@ -191,7 +198,8 @@ class _MeetingFormScreenState extends State<MeetingFormScreen> {
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
     );
 
-    final prompt = '''
+    final prompt =
+        '''
 Analyze these business meeting notes:
 "$notes"
 
@@ -205,7 +213,7 @@ Return strictly valid JSON:
 
     final response = await http.post(
       url,
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-goog-api-key': apiKey},
       body: jsonEncode({
         'contents': [
           {
@@ -244,7 +252,8 @@ Return strictly valid JSON:
     ];
     final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
 
-    final prompt = '''
+    final prompt =
+        '''
 Analyze these business meeting notes:
 "$notes"
 
@@ -258,21 +267,23 @@ Return strictly valid JSON:
 
     for (final model in candidateModels) {
       try {
-        final response = await http.post(
-          url,
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'model': model,
-            'messages': [
-              {'role': 'user', 'content': prompt},
-            ],
-            'response_format': {'type': 'json_object'},
-            'temperature': 0.1,
-          }),
-        ).timeout(const Duration(seconds: 8));
+        final response = await http
+            .post(
+              url,
+              headers: {
+                'Authorization': 'Bearer $apiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'model': model,
+                'messages': [
+                  {'role': 'user', 'content': prompt},
+                ],
+                'response_format': {'type': 'json_object'},
+                'temperature': 0.1,
+              }),
+            )
+            .timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -369,7 +380,10 @@ Return strictly valid JSON:
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
         titleSpacing: 0,
-        title: Text(_isEditing ? 'Edit Meeting' : 'New Meeting', style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(
+          _isEditing ? 'Edit Meeting' : 'New Meeting',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -382,7 +396,9 @@ Return strictly valid JSON:
         ],
       ),
       body: _loadingRelations
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : Form(
               key: _formKey,
               child: ListView(
@@ -393,7 +409,9 @@ Return strictly valid JSON:
                     label: 'Meeting Title *',
                     hintText: 'e.g. Q3 Partnership Review',
                     prefixIcon: Icons.meeting_room_outlined,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Title is required'
+                        : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
 
@@ -403,7 +421,11 @@ Return strictly valid JSON:
                     onTap: _pickDate,
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary),
+                        const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Column(
@@ -421,12 +443,19 @@ Return strictly valid JSON:
                               const SizedBox(height: 2),
                               Text(
                                 dateFormat.format(_meetingDate),
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.edit_calendar_rounded, size: 18, color: Colors.grey),
+                        const Icon(
+                          Icons.edit_calendar_rounded,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
                       ],
                     ),
                   ),
@@ -438,14 +467,20 @@ Return strictly valid JSON:
                       decoration: BoxDecoration(
                         color: AppColors.warning.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppRadius.md),
-                        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+                        border: Border.all(
+                          color: AppColors.warning.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 18),
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: AppColors.warning,
+                                size: 18,
+                              ),
                               const SizedBox(width: AppSpacing.xs),
                               Text(
                                 'Schedule Overlap Detected (${_conflicts.length})',
@@ -459,14 +494,19 @@ Return strictly valid JSON:
                           ),
                           const SizedBox(height: 4),
                           ..._conflicts.map((c) {
-                            final kind = (c['kind'] as String? ?? 'event').toUpperCase();
+                            final kind = (c['kind'] as String? ?? 'event')
+                                .toUpperCase();
                             final title = c['title'] as String? ?? 'Untitled';
-                            final date = c['date'] as DateTime? ?? DateTime.now();
+                            final date =
+                                c['date'] as DateTime? ?? DateTime.now();
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Text(
                                 '• $kind: "$title" at ${DateFormat('h:mm a').format(date)}',
-                                style: TextStyle(fontSize: 11, color: AppColors.muted(context)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.muted(context),
+                                ),
                               ),
                             );
                           }),
@@ -490,11 +530,18 @@ Return strictly valid JSON:
                     decoration: InputDecoration(
                       labelText: 'Related Company (optional)',
                       prefixIcon: const Icon(Icons.business_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
                     ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('None')),
-                      ..._organizations.map((org) => DropdownMenuItem(value: org.id, child: Text(org.name))),
+                      ..._organizations.map(
+                        (org) => DropdownMenuItem(
+                          value: org.id,
+                          child: Text(org.name),
+                        ),
+                      ),
                     ],
                     onChanged: (id) => setState(() => _selectedOrgId = id),
                   ),
@@ -523,8 +570,12 @@ Return strictly valid JSON:
                           selectedColor: AppColors.primary,
                           labelStyle: TextStyle(
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            color: isSelected ? Colors.white : AppColors.foreground(context),
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.foreground(context),
                           ),
                           onSelected: (selected) {
                             AppHaptics.lightImpact();
@@ -546,7 +597,8 @@ Return strictly valid JSON:
                   AppTextField(
                     controller: _notesController,
                     label: 'Meeting Notes / Transcript',
-                    hintText: 'Type key talking points, who attended, promises made, and decisions agreed upon...',
+                    hintText:
+                        'Type key talking points, who attended, promises made, and decisions agreed upon...',
                     maxLines: 7,
                     prefixIcon: Icons.notes_rounded,
                   ),
@@ -554,16 +606,22 @@ Return strictly valid JSON:
 
                   // AI Extract Button
                   AppButton(
-                    label: _isExtracting ? 'Analyzing Meeting...' : 'Extract Decisions & Action Items (AI)',
+                    label: _isExtracting
+                        ? 'Analyzing Meeting...'
+                        : 'Extract Decisions & Action Items (AI)',
                     icon: Icons.auto_awesome_rounded,
                     variant: AppButtonVariant.tonal,
                     loading: _isExtracting,
-                    onPressed: _isExtracting ? null : _extractIntelligenceWithAi,
+                    onPressed: _isExtracting
+                        ? null
+                        : _extractIntelligenceWithAi,
                   ),
                   const SizedBox(height: AppSpacing.lg),
 
                   // Intelligence Summary
-                  if (_summaryController.text.isNotEmpty || _decisions.isNotEmpty || _actionItems.isNotEmpty) ...[
+                  if (_summaryController.text.isNotEmpty ||
+                      _decisions.isNotEmpty ||
+                      _actionItems.isNotEmpty) ...[
                     AppSectionHeader(title: 'AI Intelligence Summary'),
                     const SizedBox(height: AppSpacing.xs),
                     AppTextField(
@@ -584,17 +642,31 @@ Return strictly valid JSON:
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      ..._decisions.map((d) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.success),
-                                const SizedBox(width: AppSpacing.xs),
-                                Expanded(child: Text(d, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-                              ],
-                            ),
-                          )),
+                      ..._decisions.map(
+                        (d) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_outline_rounded,
+                                size: 16,
+                                color: AppColors.success,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: Text(
+                                  d,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.md),
                     ],
 
@@ -609,17 +681,31 @@ Return strictly valid JSON:
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      ..._actionItems.map((a) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.task_alt_rounded, size: 16, color: AppColors.primary),
-                                const SizedBox(width: AppSpacing.xs),
-                                Expanded(child: Text(a, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-                              ],
-                            ),
-                          )),
+                      ..._actionItems.map(
+                        (a) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.task_alt_rounded,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: Text(
+                                  a,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ],
 

@@ -1,22 +1,24 @@
 import 'dart:async';
 import 'dart:io';
+
+import '../services/capture_save_service.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import '../services/database_service.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+
+import '../models/ai_extraction_result.dart';
 import '../services/ai_service.dart';
-import '../services/voice_service.dart';
+import '../services/database_service.dart';
 import '../services/diarization_service.dart';
 import '../services/meeting_analysis_service.dart';
-import 'meeting_summary_screen.dart';
-import '../models/ai_extraction_result.dart';
-import '../models/commitment.dart';
-import '../models/reminder.dart';
+import '../services/voice_service.dart';
 import '../theme/app_haptics.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/widgets.dart';
 import 'ai_review_screen.dart';
+import 'meeting_summary_screen.dart';
 import 'multi_participant_resolution_screen.dart';
 
 enum _CaptureMode { meeting, dictation }
@@ -51,9 +53,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   _CaptureMode _mode = _CaptureMode.meeting;
   bool _isTranscribing = false;
   String? _diarizationKey;
-  String? _pendingAudioPath; // kept if upload fails so the user can retry
+  String? _pendingAudioPath;
   DiarizedTranscript? _diarized;
-  String? _selfLabel; // which "Person X" is the user
+  String? _selfLabel;
 
   static const _sampleVoiceTranscripts = {
     'Single Meeting':
@@ -95,6 +97,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
           }
         },
       );
+
       if (mounted) {
         setState(() => _speechEnabled = available);
       }
@@ -105,6 +108,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
   @override
   void dispose() {
+    unawaited(WakelockPlus.disable());
     _timer?.cancel();
     _speech.stop();
     _recorder.dispose();
@@ -115,6 +119,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
   void _toggleRecording() {
     if (_isTranscribing) return;
+
     if (_isRecording) {
       if (_mode == _CaptureMode.meeting) {
         _stopMeetingRecording();
@@ -142,7 +147,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   Future<void> _saveDiarizationKey() async {
     final key = _keyController.text.trim();
     if (key.isEmpty) return;
+
     await DiarizationService.setApiKey(key);
+
     if (mounted) {
       AppHaptics.success();
       setState(() => _diarizationKey = key);
@@ -151,6 +158,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
   void _showSnack(String message, {bool error = false}) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -165,6 +173,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
 
   Future<void> _startMeetingRecording() async {
     AppHaptics.mediumImpact();
+
     if (_diarizationKey == null || _diarizationKey!.isEmpty) {
       _showSnack(
         'Add your Gemini key first to separate speakers.',
@@ -172,11 +181,13 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
       );
       return;
     }
+
     try {
       if (!await _recorder.hasPermission()) {
         _showSnack('Microphone permission is required.', error: true);
         return;
       }
+
       final dir = await getTemporaryDirectory();
       final path =
           '${dir.path}/meeting_${DateTime.now().millisecondsSinceEpoch}.m4a';
@@ -191,6 +202,11 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
         path: path,
       );
 
+      if (!mounted) {
+        await _recorder.stop();
+        return;
+      }
+
       setState(() {
         _isRecording = true;
         _recordingSeconds = 0;
@@ -200,9 +216,17 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
         _transcriptController.clear();
       });
 
+      try {
+        await WakelockPlus.enable();
+      } catch (e) {
+        debugPrint('Could not enable wakelock: $e');
+      }
+
       _timer?.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() => _recordingSeconds++);
+        if (mounted) {
+          setState(() => _recordingSeconds++);
+        }
       });
     } catch (e) {
       debugPrint('Meeting recording start error: $e');
@@ -211,20 +235,32 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   }
 
   Future<void> _stopMeetingRecording() async {
+    try {
+      await WakelockPlus.disable();
+    } catch (e) {
+      debugPrint('Could not disable wakelock: $e');
+    }
+
     AppHaptics.lightImpact();
     _timer?.cancel();
+
     String? path;
+
     try {
       path = await _recorder.stop();
     } catch (e) {
       debugPrint('Meeting recording stop error: $e');
     }
-    if (mounted) setState(() => _isRecording = false);
+
+    if (mounted) {
+      setState(() => _isRecording = false);
+    }
 
     if (path == null) {
       _showSnack('Recording failed. Please try again.', error: true);
       return;
     }
+
     await _transcribeMeeting(path);
   }
 
@@ -233,23 +269,31 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   Future<void> _transcribeMeeting(String path) async {
     final key = _diarizationKey;
     if (key == null || key.isEmpty) return;
-    setState(() => _isTranscribing = true);
+
+    if (mounted) {
+      setState(() => _isTranscribing = true);
+    }
+
     try {
       final result = await DiarizationService.transcribe(
         file: File(path),
         apiKey: key,
         languageCode: _languageCode,
       );
+
       if (!mounted) return;
+
       setState(() {
         _diarized = result;
         _selfLabel = null;
         _pendingAudioPath = null;
         _transcriptController.text = result.toLabeledText();
       });
+
       AppHaptics.success();
+
       try {
-        await File(path).delete(); // don't keep raw meeting audio on the device
+        await File(path).delete();
       } catch (_) {}
     } catch (e) {
       if (mounted) {
@@ -257,7 +301,9 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
         _showSnack('Speaker separation failed: $e', error: true);
       }
     } finally {
-      if (mounted) setState(() => _isTranscribing = false);
+      if (mounted) {
+        setState(() => _isTranscribing = false);
+      }
     }
   }
 
@@ -265,6 +311,7 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   String _selfLabeledTranscript(String text) {
     final me = _selfLabel;
     if (me == null) return text;
+
     return text.replaceAll(
       RegExp('^${RegExp.escape(me)}:', multiLine: true),
       'Me (the user):',
@@ -275,14 +322,18 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   Future<void> _analyzeMeeting() async {
     final text = _transcriptController.text.trim();
     if (text.isEmpty) return;
+
     AppHaptics.mediumImpact();
     setState(() => _isProcessing = true);
+
     try {
       final transcript = _selfLabeledTranscript(text);
       final analysis = await MeetingAnalysisService.analyze(
         transcript: transcript,
       );
+
       if (!mounted) return;
+
       final saved = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
@@ -292,11 +343,16 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
           ),
         ),
       );
-      if (saved == true && mounted) Navigator.pop(context, true);
+
+      if (saved == true && mounted) {
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       _showSnack('Meeting analysis failed: $e', error: true);
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
@@ -304,14 +360,17 @@ class _VoiceCaptureScreenState extends State<VoiceCaptureScreen>
   String _buildExtractionInput(String text) {
     final d = _diarized;
     if (d == null) return text;
+
     var body = text;
     final me = _selfLabel;
+
     if (me != null) {
       body = body.replaceAll(
         RegExp('^${RegExp.escape(me)}:', multiLine: true),
         'Me (the user):',
       );
     }
+
     return '''
 [MEETING TRANSCRIPT — ${d.speakerCount} distinct voices were separated by speaker diarization.
 Each line starts with the speaker label. "Me (the user)" is the person who owns this assistant.
@@ -325,11 +384,13 @@ $body''';
 
   Future<void> _startRecording() async {
     AppHaptics.mediumImpact();
+
     if (!_speechEnabled) {
       await _initSpeech();
     }
 
     String locale = 'en_US';
+
     if (_selectedLanguage == 'বাংলা') {
       locale = 'bn_BD';
     } else if (_selectedLanguage == 'Banglish') {
@@ -345,11 +406,12 @@ $body''';
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        // Active watchdog: if speech engine stopped, cleanly turn off recording button immediately
+        // Active watchdog: if speech engine stopped, cleanly turn off recording button immediately.
         if (!_speech.isListening && _recordingSeconds >= 2) {
           _stopRecording();
           return;
         }
+
         setState(() => _recordingSeconds++);
       }
     });
@@ -379,17 +441,20 @@ $body''';
   Future<void> _stopRecording() async {
     AppHaptics.lightImpact();
     _timer?.cancel();
+
     try {
       await _speech.stop();
     } catch (_) {}
+
     if (mounted) {
       setState(() => _isRecording = false);
     }
   }
 
-  /// Decode voice transcript with AI and proceed to review or auto-setup
+  /// Decode voice transcript with AI and proceed to review or auto-setup.
   Future<void> _decodeAndSetup({bool autoSetup = false}) async {
     final text = _transcriptController.text.trim();
+
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -405,6 +470,7 @@ $body''';
 
     AppHaptics.mediumImpact();
     setState(() => _isProcessing = true);
+
     final extractionText = _buildExtractionInput(text);
 
     try {
@@ -412,14 +478,16 @@ $body''';
       final aiService = await AiServiceFactory.getService();
 
       AiExtractionResult result;
+
       try {
         result = await aiService.extract(
           text: extractionText,
           existingContacts: existingContacts,
         );
       } catch (_) {
-        // Resilient fallback to local rule engine
+        // Resilient fallback to local rule engine.
         final offlineService = MockAiService();
+
         result = await offlineService.extract(
           text: extractionText,
           existingContacts: existingContacts,
@@ -428,7 +496,7 @@ $body''';
 
       if (!mounted) return;
 
-      // If multiple unresolved participants are detected
+      // If multiple unresolved participants are detected.
       if (result.hasUnresolvedParticipants) {
         final resolved = await Navigator.push<bool>(
           context,
@@ -441,7 +509,8 @@ $body''';
             ),
           ),
         );
-        if (resolved != true && !mounted) return;
+
+        if (resolved != true || !mounted) return;
       }
 
       if (autoSetup) {
@@ -469,89 +538,66 @@ $body''';
         );
       }
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
-  /// 1-Tap Instant Setup: directly commits decoded items to SQLite and speaks confirmation
+  /// 1-Tap Instant Setup: saves everything in one transaction, with Undo.
+  /// Memories are saved as unverified until the user confirms them.
   Future<void> _autoSetupItems(AiExtractionResult result) async {
     try {
-      final contactIdMap = <String, int>{};
-      for (final ec in result.contacts) {
-        if (ec.matchedExistingContactId != null) {
-          contactIdMap[ec.name.toLowerCase()] = ec.matchedExistingContactId!;
-        } else {
-          final newContact = ec.toContact();
-          final id = await _db.insertContact(newContact);
-          contactIdMap[ec.name.toLowerCase()] = id;
-        }
-      }
+      final outcome = await CaptureSaveService.save(
+        result,
+        memoriesVerified: false,
+      );
 
-      final savedCommitments = <Commitment>[];
-      for (final ec in result.commitments) {
-        int? linkedContactId = ec.matchedContactId;
-        if (linkedContactId == null && ec.contactName != null) {
-          linkedContactId = contactIdMap[ec.contactName!.toLowerCase()];
-        }
+      final saved = outcome.commitments;
 
-        final commitment = Commitment(
-          title: ec.title,
-          description: ec.description,
-          type: ec.type,
-          dueDate: ec.dueDate,
-          contactId: linkedContactId,
-          status: CommitmentStatus.pending,
-        );
-
-        final id = await _db.insertCommitment(commitment);
-        savedCommitments.add(commitment.copyWith(id: id));
-      }
-
-      for (final er in result.reminders) {
-        final reminder = Reminder(
-          title: er.title,
-          remindAt: er.remindAt,
-          isRecurring: er.isRecurring,
-          recurringRule: er.recurringRule,
-          commitmentId: savedCommitments.isNotEmpty
-              ? savedCommitments.first.id
-              : null,
-          status: ReminderStatus.pending,
-        );
-        await _db.insertReminder(reminder);
-      }
-
-      // Voice speech confirmation back to user using assistant executive phrasing
       final speechBuffer = StringBuffer();
-      if (savedCommitments.isNotEmpty) {
-        final first = savedCommitments.first;
-        final naturalPhrasing = VoiceService.formatCommitmentSpeech(
-          title: first.title,
-          type: first.type,
-          contactName: first.contactName,
-          dueDate: first.dueDate,
-        );
-        speechBuffer.write(naturalPhrasing);
 
-        if (savedCommitments.length > 1) {
+      if (saved.isNotEmpty) {
+        final first = saved.first;
+
+        speechBuffer.write(
+          VoiceService.formatCommitmentSpeech(
+            title: first.title,
+            type: first.type,
+            contactName: first.contactName,
+            dueDate: first.dueDate,
+          ),
+        );
+
+        if (saved.length > 1) {
           speechBuffer.write(
-            ' I also scheduled ${savedCommitments.length - 1} additional commitment${savedCommitments.length > 2 ? 's' : ''} from this conversation.',
+            ' I also saved ${saved.length - 1} more from this conversation.',
           );
         }
-        if (result.reminders.isNotEmpty)
-          speechBuffer.write(' Notification reminders are set.');
-      } else {
-        speechBuffer.write('Done! I have decoded and saved your notes.');
-      }
 
-      await VoiceService().speak(speechBuffer.toString());
+        if (outcome.reminders.isNotEmpty) {
+          speechBuffer.write(' Reminders are set.');
+        }
+      } else {
+        speechBuffer.write('Done! I have saved your notes.');
+      }
 
       if (mounted) {
         AppHaptics.success();
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Successfully set up ${savedCommitments.length} promise(s) & ${result.contacts.length} contact(s)!',
+              'Saved ${saved.length} promise(s), '
+              '${outcome.reminders.length} reminder(s), '
+              '${outcome.memoryIds.length} memory note(s).',
+            ),
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'UNDO',
+              onPressed: () async {
+                await outcome.undo();
+              },
             ),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
@@ -560,14 +606,18 @@ $body''';
             ),
           ),
         );
+
         Navigator.pop(context, true);
       }
+
+      VoiceService().speak(speechBuffer.toString());
     } catch (e) {
       if (mounted) {
         AppHaptics.warning();
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Auto-setup error: $e'),
+            content: Text('Nothing was saved: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -726,6 +776,7 @@ $body''';
           Row(
             children: ['English', 'বাংলা', 'Banglish'].map((lang) {
               final isSel = _selectedLanguage == lang;
+
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.xs),
                 child: ChoiceChip(
@@ -867,6 +918,7 @@ $body''';
                     runSpacing: AppSpacing.xs,
                     children: _diarized!.labels.map((label) {
                       final sel = _selfLabel == label;
+
                       return ChoiceChip(
                         label: Text(label),
                         selected: sel,
@@ -884,6 +936,42 @@ $body''';
                       );
                     }).toList(),
                   ),
+
+                  // Estimated vocal tone. This is not a confirmed emotional state.
+                  if (_diarized!.moodByLabel.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'ESTIMATED VOCAL TONE',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.muted(context),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: _diarized!.moodByLabel.entries.map((entry) {
+                        return Chip(
+                          avatar: const Icon(
+                            Icons.graphic_eq_rounded,
+                            size: 16,
+                          ),
+                          label: Text('${entry.key}: ${entry.value}'),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                    Text(
+                      'Voice-based estimates only. These are not confirmed emotions or diagnoses.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.muted(context),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -909,10 +997,12 @@ $body''';
                 label: Text(e.key, style: const TextStyle(fontSize: 11)),
                 onPressed: () {
                   AppHaptics.lightImpact();
+
                   setState(() {
                     _transcriptController.text = e.value;
                     _diarized = null;
                     _selfLabel = null;
+
                     if (['English', 'বাংলা', 'Banglish'].contains(e.key)) {
                       _selectedLanguage = e.key;
                     }
@@ -933,8 +1023,9 @@ $body''';
             suffixIcon: _transcriptController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear_rounded, size: 18),
-                    onPressed: () =>
-                        setState(() => _transcriptController.clear()),
+                    onPressed: () {
+                      setState(() => _transcriptController.clear());
+                    },
                   )
                 : null,
             onChanged: (_) => setState(() {}),
@@ -960,6 +1051,7 @@ $body''';
             ),
             const SizedBox(height: AppSpacing.sm),
           ],
+
           if (_diarized == null) ...[
             // Action 1: Instant Setup for Me (1-Tap)
             AppButton(

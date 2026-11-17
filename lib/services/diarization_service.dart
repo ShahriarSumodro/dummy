@@ -6,16 +6,18 @@ import 'database_service.dart';
 
 /// One continuous stretch of speech by a single voice.
 class SpeakerUtterance {
-  final int speaker; // speaker index in order of first appearance
+  final int speaker;
   final String text;
   final double start;
   final double end;
+  final String? tone;
 
   const SpeakerUtterance({
     required this.speaker,
     required this.text,
     this.start = 0,
     this.end = 0,
+    this.tone,
   });
 }
 
@@ -24,9 +26,32 @@ class SpeakerUtterance {
 class DiarizedTranscript {
   final List<SpeakerUtterance> utterances;
   final List<int> _order;
+  final Map<int, Map<String, int>> toneCounts; // speaker -> tone -> turns
 
-  DiarizedTranscript(this.utterances)
+  DiarizedTranscript(this.utterances, {this.toneCounts = const {}})
     : _order = _firstAppearanceOrder(utterances);
+
+  /// "Person A" -> dominant non-neutral tone, only when it covers >= 25% of
+  /// that person's turns. An estimate from voice, never a fact.
+  Map<String, String> get moodByLabel {
+    final out = <String, String>{};
+    for (final entry in toneCounts.entries) {
+      final total = entry.value.values.fold<int>(0, (a, b) => a + b);
+      if (total == 0) continue;
+      String? best;
+      var bestN = 0;
+      entry.value.forEach((tone, n) {
+        if (tone != 'neutral' && n > bestN) {
+          best = tone;
+          bestN = n;
+        }
+      });
+      if (best != null && bestN / total >= 0.25) {
+        out[labelFor(entry.key)] = best!;
+      }
+    }
+    return out;
+  }
 
   static List<int> _firstAppearanceOrder(List<SpeakerUtterance> list) {
     final seen = <int>[];
@@ -79,7 +104,7 @@ class DiarizationService {
     if (bytes.isEmpty) throw Exception('Recording is empty.');
     if (bytes.length > _maxAudioBytes) {
       throw Exception(
-        'Recording is too long for one upload (about 40 minutes max). Split the meeting into parts.',
+        'Recording is too long for one upload (about 55 minutes max). Split the meeting into parts.',
       );
     }
 
@@ -98,7 +123,8 @@ Transcribe this meeting recording and separate it by speaker.
 - Each item is one speaker turn. Merge consecutive sentences from the same voice into one item.
 - Transcribe what was said as accurately as possible. Skip silence, music and background noise.
 - If a speaker clearly states their own name, still use the Person label.
-Return only JSON: an array of objects {"speaker": "Person A", "text": "..."}.
+- For each turn add "tone": one of calm, happy, excited, stressed, frustrated, sad, uncertain, neutral. Judge it from how the voice sounds (pace, pitch, energy), not only the words. If unsure use "neutral".
+Return only JSON: an array of objects {"speaker": "Person A", "text": "...", "tone": "calm"}.
 ''';
 
     final body = jsonEncode({
@@ -123,6 +149,7 @@ Return only JSON: an array of objects {"speaker": "Person A", "text": "..."}.
             'properties': {
               'speaker': {'type': 'STRING'},
               'text': {'type': 'STRING'},
+              'tone': {'type': 'STRING'},
             },
             'required': ['speaker', 'text'],
           },
@@ -252,6 +279,7 @@ Return only JSON: an array of objects {"speaker": "Person A", "text": "..."}.
 
     final indexByLabel = <String, int>{};
     final raw = <SpeakerUtterance>[];
+    final tones = <int, Map<String, int>>{};
     for (final item in items) {
       final m = item as Map<String, dynamic>;
       final label = (m['speaker'] as String? ?? 'Person A').trim();
@@ -261,7 +289,12 @@ Return only JSON: an array of objects {"speaker": "Person A", "text": "..."}.
         label.toLowerCase(),
         () => indexByLabel.length,
       );
-      raw.add(SpeakerUtterance(speaker: idx, text: t));
+      final tone = (m['tone'] as String? ?? '').trim().toLowerCase();
+      if (tone.isNotEmpty) {
+        final byTone = tones.putIfAbsent(idx, () => <String, int>{});
+        byTone[tone] = (byTone[tone] ?? 0) + 1;
+      }
+      raw.add(SpeakerUtterance(speaker: idx, text: t, tone: tone));
     }
 
     if (raw.isEmpty) throw Exception('No speech detected in the recording.');
@@ -274,12 +307,13 @@ Return only JSON: an array of objects {"speaker": "Person A", "text": "..."}.
           SpeakerUtterance(
             speaker: last.speaker,
             text: '${last.text} ${u.text}',
+            tone: last.tone,
           ),
         );
       } else {
         merged.add(u);
       }
     }
-    return DiarizedTranscript(merged);
+    return DiarizedTranscript(merged, toneCounts: tones);
   }
 }

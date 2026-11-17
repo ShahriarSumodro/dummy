@@ -12,7 +12,8 @@ import 'multi_participant_resolution_screen.dart';
 /// Capture modal allowing users to enter unstructured notes or meeting transcripts
 /// to extract contacts, commitments, and reminders.
 class AiCaptureSheet extends StatefulWidget {
-  const AiCaptureSheet({super.key});
+  final String? initialText;
+  const AiCaptureSheet({super.key, this.initialText});
 
   @override
   State<AiCaptureSheet> createState() => _AiCaptureSheetState();
@@ -21,6 +22,18 @@ class AiCaptureSheet extends StatefulWidget {
 class _AiCaptureSheetState extends State<AiCaptureSheet> {
   final _textController = TextEditingController();
   final _db = DatabaseService();
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.initialText;
+    if (t != null && t.trim().isNotEmpty) {
+      _textController.text = t;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _processMemory();
+      });
+    }
+  }
 
   bool _isProcessing = false;
   String? _errorMessage;
@@ -71,10 +84,14 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Cloud AI offline. Processed via local offline memory rules.'),
+              content: const Text(
+                'Cloud AI offline. Processed via local offline memory rules.',
+              ),
               backgroundColor: AppColors.warning,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
               duration: const Duration(seconds: 4),
             ),
           );
@@ -103,15 +120,13 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
             ),
           ),
         );
-        if (resolved != true && !mounted) return;
+        if (resolved != true || !mounted) return;
       }
 
       // Navigate to Review & Confirm screen
       final saved = await Navigator.push<bool>(
         context,
-        MaterialPageRoute(
-          builder: (_) => AiReviewScreen(extraction: result),
-        ),
+        MaterialPageRoute(builder: (_) => AiReviewScreen(extraction: result)),
       );
 
       if (saved == true && mounted) {
@@ -133,7 +148,9 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xl),
+        ),
       ),
       padding: EdgeInsets.only(
         left: AppSpacing.lg,
@@ -154,7 +171,11 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
                   color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primary, size: 18),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               const Text(
@@ -173,7 +194,9 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
                   AppHaptics.lightImpact();
                   final saved = await Navigator.push<bool>(
                     context,
-                    MaterialPageRoute(builder: (_) => const VoiceCaptureScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const VoiceCaptureScreen(),
+                    ),
                   );
                   if (saved == true && mounted) {
                     Navigator.pop(context, true);
@@ -189,16 +212,14 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Type a conversation note, promise, or meeting follow-up. The assistant will extract who, what, and when.',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.muted(context),
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.muted(context)),
           ),
           const SizedBox(height: AppSpacing.md),
 
           AppTextField(
             controller: _textController,
-            hintText: 'e.g. Met with Rahim today. Promised to email the revised quotation by tomorrow 3 PM...',
+            hintText:
+                'e.g. Met with Rahim today. Promised to email the revised quotation by tomorrow 3 PM...',
             maxLines: 4,
             autofocus: true,
           ),
@@ -228,15 +249,24 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
                     },
                     borderRadius: BorderRadius.circular(AppRadius.full),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.subtle(context),
                         borderRadius: BorderRadius.circular(AppRadius.full),
-                        border: Border.all(color: AppColors.border(context), width: 0.5),
+                        border: Border.all(
+                          color: AppColors.border(context),
+                          width: 0.5,
+                        ),
                       ),
                       child: Text(
                         p.length > 35 ? '${p.substring(0, 32)}...' : p,
-                        style: TextStyle(fontSize: 11, color: AppColors.foreground(context)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.foreground(context),
+                        ),
                       ),
                     ),
                   ),
@@ -252,14 +282,13 @@ class _AiCaptureSheetState extends State<AiCaptureSheet> {
               decoration: BoxDecoration(
                 color: AppColors.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.3),
+                ),
               ),
               child: Text(
                 _errorMessage!,
-                style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: AppColors.error, fontSize: 12),
               ),
             ),
           ],

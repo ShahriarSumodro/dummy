@@ -6,6 +6,7 @@ import '../services/database_service.dart';
 import '../theme/app_haptics.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/widgets.dart';
+import '../services/ai_service.dart';
 
 class _ChatMessage {
   final String text;
@@ -73,8 +74,12 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                 _ChatMessage(
                   text: m['text'] as String,
                   isUser: m['is_user'] as bool,
-                  sourceReferences: List<String>.from(m['source_references'] ?? []),
-                  suggestedNextActions: List<String>.from(m['suggested_next_actions'] ?? []),
+                  sourceReferences: List<String>.from(
+                    m['source_references'] ?? [],
+                  ),
+                  suggestedNextActions: List<String>.from(
+                    m['suggested_next_actions'] ?? [],
+                  ),
                   timestamp: DateTime.tryParse(m['timestamp'] as String? ?? ''),
                 ),
               );
@@ -148,9 +153,13 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Microphone permission or speech recognition unavailable.'),
+              content: const Text(
+                'Microphone permission or speech recognition unavailable.',
+              ),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
           );
         }
@@ -165,7 +174,8 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
               setState(() {
                 _textController.text = result.recognizedWords;
               });
-              if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+              if (result.finalResult &&
+                  result.recognizedWords.trim().isNotEmpty) {
                 _speech.stop();
                 setState(() => _isListening = false);
                 _sendQuery(result.recognizedWords);
@@ -195,9 +205,47 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     });
   }
 
+  Future<void> _ensureCloudConsent() async {
+    final existing = await _db.getSetting('cloud_consent');
+    if (existing != null) return;
+
+    final key = await AiServiceFactory.getApiKey();
+    if (key == null || key.isEmpty) return;
+    if (!mounted) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Use cloud AI?'),
+        content: const Text(
+          'To answer smartly, Dummy. sends a short summary of your promises, '
+          'people (names and roles only) and verified memories to your AI '
+          'provider (Groq or Gemini). Phone numbers, emails and raw meeting '
+          'transcripts are not sent.\n\nChoose "Offline only" to keep '
+          'everything on this phone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Offline only'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Allow cloud AI'),
+          ),
+        ],
+      ),
+    );
+
+    await _db.setSetting('cloud_consent', ok == true ? 'true' : 'false');
+  }
+
   Future<void> _sendQuery(String query) async {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty || _isThinking) return;
+    await _ensureCloudConsent();
+    if (!mounted) return;
 
     AppHaptics.lightImpact();
     setState(() {
@@ -213,11 +261,21 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     } catch (_) {}
 
     try {
-      final history = _messages
-          .map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text})
+      final prior = _messages.sublist(
+        0,
+        _messages.length - 1,
+      ); // exclude the new question
+      final recent = prior.length > 6 ? prior.sublist(prior.length - 6) : prior;
+      final history = recent
+          .map(
+            (m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text},
+          )
           .toList();
 
-      final response = await _queryService.queryMemory(cleanQuery, conversationHistory: history);
+      final response = await _queryService.queryMemory(
+        cleanQuery,
+        conversationHistory: history,
+      );
       if (mounted) {
         setState(() {
           _messages.add(
@@ -252,12 +310,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
       if (mounted) {
         final errorText = 'Unable to query companion: $e';
         setState(() {
-          _messages.add(
-            _ChatMessage(
-              text: errorText,
-              isUser: false,
-            ),
-          );
+          _messages.add(_ChatMessage(text: errorText, isUser: false));
         });
         try {
           await _db.insertChatMessage(text: errorText, isUser: false);
@@ -324,10 +377,17 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                 color: AppColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: const Icon(Icons.psychology_rounded, size: 18, color: AppColors.primary),
+              child: const Icon(
+                Icons.psychology_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            const Text('Dummy.', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const Text(
+              'Dummy.',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
           ],
         ),
         actions: [
@@ -336,7 +396,10 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             builder: (context, state, _) {
               if (state == TtsState.playing) {
                 return IconButton(
-                  icon: const Icon(Icons.stop_circle_rounded, color: AppColors.error),
+                  icon: const Icon(
+                    Icons.stop_circle_rounded,
+                    color: AppColors.error,
+                  ),
                   tooltip: 'Stop Speaking',
                   onPressed: () => _voiceService.stop(),
                 );
@@ -368,13 +431,19 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
 
           if (_isThinking)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xs,
+              ),
               child: Row(
                 children: [
                   const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
@@ -390,7 +459,10 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
 
           // Input Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             decoration: BoxDecoration(
               color: AppColors.surface(context),
               border: Border(
@@ -407,7 +479,10 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                       style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Ask memory (e.g. What did I promise?)...',
-                        hintStyle: TextStyle(fontSize: 13, color: AppColors.muted(context)),
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.muted(context),
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.full),
                           borderSide: BorderSide.none,
@@ -424,9 +499,13 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   IconButton(
-                    icon: Icon(_isListening ? Icons.mic_rounded : Icons.mic_none_rounded),
+                    icon: Icon(
+                      _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                    ),
                     color: _isListening ? AppColors.error : AppColors.primary,
-                    tooltip: _isListening ? 'Listening... Tap to send' : 'Speak Question',
+                    tooltip: _isListening
+                        ? 'Listening... Tap to send'
+                        : 'Speak Question',
                     onPressed: _toggleChatVoiceInput,
                   ),
                   const SizedBox(width: 2),
@@ -440,7 +519,11 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.arrow_upward_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -462,14 +545,14 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
         ),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: msg.isUser
-              ? AppColors.primary
-              : AppColors.surface(context),
+          color: msg.isUser ? AppColors.primary : AppColors.surface(context),
           borderRadius: BorderRadius.circular(AppRadius.lg).copyWith(
             bottomRight: msg.isUser ? const Radius.circular(2) : null,
             bottomLeft: !msg.isUser ? const Radius.circular(2) : null,
           ),
-          border: !msg.isUser ? Border.all(color: AppColors.border(context), width: 0.5) : null,
+          border: !msg.isUser
+              ? Border.all(color: AppColors.border(context), width: 0.5)
+              : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -484,7 +567,9 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
             SelectableText(
               msg.text,
               style: TextStyle(
-                color: msg.isUser ? Colors.white : AppColors.foreground(context),
+                color: msg.isUser
+                    ? Colors.white
+                    : AppColors.foreground(context),
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -531,22 +616,33 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                           _voiceService.speak(msg.text);
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                isThisSpeaking ? Icons.volume_up_rounded : Icons.volume_down_outlined,
+                                isThisSpeaking
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_down_outlined,
                                 size: 15,
-                                color: isThisSpeaking ? AppColors.primary : AppColors.muted(context),
+                                color: isThisSpeaking
+                                    ? AppColors.primary
+                                    : AppColors.muted(context),
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 isThisSpeaking ? 'Speaking...' : 'Speak',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: isThisSpeaking ? FontWeight.bold : FontWeight.normal,
-                                  color: isThisSpeaking ? AppColors.primary : AppColors.muted(context),
+                                  fontWeight: isThisSpeaking
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isThisSpeaking
+                                      ? AppColors.primary
+                                      : AppColors.muted(context),
                                 ),
                               ),
                             ],

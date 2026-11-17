@@ -21,6 +21,7 @@ import 'notification_service.dart';
 /// Handles all CRUD operations for contacts, commitments, reminders,
 /// organizations, meetings, and action drafts.
 class DatabaseService {
+  static const int reminderNotifOffset = 1000000;
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
   DatabaseService._internal();
@@ -367,13 +368,15 @@ class DatabaseService {
   Future<int> insertCommitment(Commitment commitment) async {
     final db = await database;
     final id = await db.insert('commitments', commitment.toMap());
-    await insertInteraction(Interaction(
-      type: InteractionType.commitmentCreated,
-      title: '[${commitment.type.label}] ${commitment.title}',
-      contactId: commitment.contactId,
-      commitmentId: id,
-      notes: commitment.description,
-    ));
+    await insertInteraction(
+      Interaction(
+        type: InteractionType.commitmentCreated,
+        title: '[${commitment.type.label}] ${commitment.title}',
+        contactId: commitment.contactId,
+        commitmentId: id,
+        notes: commitment.description,
+      ),
+    );
     try {
       final scheduled = commitment.copyWith(id: id);
       await NotificationService().scheduleCommitmentNotification(scheduled);
@@ -439,13 +442,16 @@ class DatabaseService {
       whereArgs: [commitment.id],
     );
     if (commitment.status == CommitmentStatus.completed) {
-      await insertInteraction(Interaction(
-        type: InteractionType.commitmentCompleted,
-        title: 'Completed: ${commitment.title}',
-        commitmentId: commitment.id,
-        contactId: commitment.contactId,
-        notes: 'Marked completed on ${DateTime.now().toIso8601String().split('T').first}',
-      ));
+      await insertInteraction(
+        Interaction(
+          type: InteractionType.commitmentCompleted,
+          title: 'Completed: ${commitment.title}',
+          commitmentId: commitment.id,
+          contactId: commitment.contactId,
+          notes:
+              'Marked completed on ${DateTime.now().toIso8601String().split('T').first}',
+        ),
+      );
     }
     try {
       await NotificationService().scheduleCommitmentNotification(commitment);
@@ -455,12 +461,15 @@ class DatabaseService {
 
   Future<Commitment?> getCommitment(int id) async {
     final db = await database;
-    final results = await db.rawQuery('''
+    final results = await db.rawQuery(
+      '''
       SELECT c.*, ct.name as contact_name
       FROM commitments c
       LEFT JOIN contacts ct ON c.contact_id = ct.id
       WHERE c.id = ?
-    ''', [id]);
+    ''',
+      [id],
+    );
     if (results.isEmpty) return null;
     return Commitment.fromMap(results.first);
   }
@@ -487,12 +496,15 @@ class DatabaseService {
     final conflicts = <Map<String, dynamic>>[];
 
     // 1. Check commitments
-    final commitmentRows = await db.rawQuery('''
+    final commitmentRows = await db.rawQuery(
+      '''
       SELECT id, title, due_date, type FROM commitments
       WHERE status = 'pending' AND due_date IS NOT NULL
       AND due_date >= ? AND due_date <= ?
       ${excludeCommitmentId != null ? 'AND id != $excludeCommitmentId' : ''}
-    ''', [startWindow, endWindow]);
+    ''',
+      [startWindow, endWindow],
+    );
 
     for (final row in commitmentRows) {
       conflicts.add({
@@ -505,11 +517,14 @@ class DatabaseService {
     }
 
     // 2. Check meetings
-    final meetingRows = await db.rawQuery('''
+    final meetingRows = await db.rawQuery(
+      '''
       SELECT id, title, meeting_date, location FROM meetings
       WHERE meeting_date >= ? AND meeting_date <= ?
       ${excludeMeetingId != null ? 'AND id != $excludeMeetingId' : ''}
-    ''', [startWindow, endWindow]);
+    ''',
+      [startWindow, endWindow],
+    );
 
     for (final row in meetingRows) {
       conflicts.add({
@@ -528,9 +543,34 @@ class DatabaseService {
   //  REMINDERS
   // ─────────────────────────────────────────────
 
+  Future<void> syncReminderNotification(Reminder r) async {
+    if (r.id == null) return;
+    final notifId = reminderNotifOffset + r.id!;
+    try {
+      if (r.status == ReminderStatus.pending ||
+          r.status == ReminderStatus.snoozed) {
+        await NotificationService().scheduleReminder(
+          id: notifId,
+          title: 'Reminder: ${r.title}',
+          body: r.notes?.isNotEmpty == true
+              ? r.notes!
+              : (r.contactName != null
+                    ? '${r.title} (${r.contactName})'
+                    : r.title),
+          scheduledDate: r.remindAt,
+          payload: 'reminder:${r.id}',
+        );
+      } else {
+        await NotificationService().cancelReminder(notifId);
+      }
+    } catch (_) {}
+  }
+
   Future<int> insertReminder(Reminder reminder) async {
     final db = await database;
-    return await db.insert('reminders', reminder.toMap());
+    final id = await db.insert('reminders', reminder.toMap());
+    await syncReminderNotification(reminder.copyWith(id: id));
+    return id;
   }
 
   Future<List<Reminder>> getAllReminders({String? statusFilter}) async {
@@ -557,16 +597,21 @@ class DatabaseService {
 
   Future<int> updateReminder(Reminder reminder) async {
     final db = await database;
-    return await db.update(
+    final n = await db.update(
       'reminders',
       reminder.toMap(),
       where: 'id = ?',
       whereArgs: [reminder.id],
     );
+    await syncReminderNotification(reminder);
+    return n;
   }
 
   Future<int> deleteReminder(int id) async {
     final db = await database;
+    try {
+      await NotificationService().cancelReminder(reminderNotifOffset + id);
+    } catch (_) {}
     return await db.delete('reminders', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -635,7 +680,11 @@ class DatabaseService {
       if (results.isEmpty) return null;
       return Organization.fromMap(results.first);
     } catch (_) {
-      final fallback = await db.query('organizations', where: 'id = ?', whereArgs: [id]);
+      final fallback = await db.query(
+        'organizations',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
       if (fallback.isEmpty) return null;
       return Organization.fromMap(fallback.first);
     }
@@ -663,12 +712,18 @@ class DatabaseService {
   Future<int> insertMeeting(Meeting meeting) async {
     final db = await database;
     final id = await db.insert('meetings', meeting.toMap());
-    await insertInteraction(Interaction(
-      type: InteractionType.meeting,
-      title: 'Meeting: ${meeting.title}',
-      meetingId: id,
-      notes: meeting.summary ?? (meeting.rawNotes != null && meeting.rawNotes!.isNotEmpty ? meeting.rawNotes : null),
-    ));
+    await insertInteraction(
+      Interaction(
+        type: InteractionType.meeting,
+        title: 'Meeting: ${meeting.title}',
+        meetingId: id,
+        notes:
+            meeting.summary ??
+            (meeting.rawNotes != null && meeting.rawNotes!.isNotEmpty
+                ? meeting.rawNotes
+                : null),
+      ),
+    );
     return id;
   }
 
@@ -757,13 +812,15 @@ class DatabaseService {
       whereArgs: [draft.id],
     );
     if (draft.status == DraftStatus.sent) {
-      await insertInteraction(Interaction(
-        type: InteractionType.draftSent,
-        title: 'Sent: ${draft.subject}',
-        contactId: draft.contactId,
-        commitmentId: draft.commitmentId,
-        notes: draft.body,
-      ));
+      await insertInteraction(
+        Interaction(
+          type: InteractionType.draftSent,
+          title: 'Sent: ${draft.subject}',
+          contactId: draft.contactId,
+          commitmentId: draft.commitmentId,
+          notes: draft.body,
+        ),
+      );
     }
     return res;
   }
@@ -825,29 +882,60 @@ class DatabaseService {
   }
 
   /// Builds a structured text memory snapshot for AI RAG questions.
-  Future<String> buildRagContextSummary({String? topic}) async {
+  /// Builds a structured text memory snapshot for AI RAG questions.
+  /// When [forCloud] is true the snapshot is minimised: no phone numbers,
+  /// emails, contact notes or raw meeting transcripts, and only
+  /// user-verified memories.
+  Future<String> buildRagContextSummary({
+    String? topic,
+    bool forCloud = false,
+  }) async {
     final contacts = await getAllContacts();
-    final commitments = await getAllCommitments();
+    final allCommitments = await getAllCommitments();
     final meetings = await getAllMeetings();
     final reminders = await getAllReminders(statusFilter: 'pending');
-    final memories = await getAllMemories(limit: 50);
+    var memories = await getAllMemories(limit: 50);
+    if (forCloud) memories = memories.where((m) => m.isVerified).toList();
+
+    // Cloud: all open items, plus only the 20 newest finished ones.
+    var commitments = allCommitments;
+    if (forCloud) {
+      final open = allCommitments
+          .where((c) => c.status != CommitmentStatus.completed)
+          .toList();
+      final done = allCommitments
+          .where((c) => c.status == CommitmentStatus.completed)
+          .take(20)
+          .toList();
+      commitments = [...open, ...done];
+    }
 
     final buffer = StringBuffer();
     buffer.writeln('=== CURRENT PERSONAL BUSINESS MEMORY CONTEXT ===');
 
     if (memories.isNotEmpty) {
-      buffer.writeln('\n-- STORED KNOWLEDGE & PREFERENCES (${memories.length}) --');
+      buffer.writeln(
+        '\n-- STORED KNOWLEDGE & PREFERENCES (${memories.length}) --',
+      );
       for (final mem in memories) {
-        final personStr = mem.contactName != null ? ' (re: ${mem.contactName})' : '';
+        final personStr = mem.contactName != null
+            ? ' (re: ${mem.contactName})'
+            : '';
         buffer.writeln('- [${mem.category.label}]$personStr: ${mem.content}');
       }
     }
 
     buffer.writeln('\n-- CONTACTS & PEOPLE (${contacts.length}) --');
     for (final c in contacts) {
-      buffer.writeln(
-        '- ${c.name} (Company: ${c.company ?? 'N/A'}, Role: ${c.role ?? 'N/A'}, Phone: ${c.phone ?? 'N/A'}, Email: ${c.email ?? 'N/A'}, Notes: ${c.notes ?? 'None'})',
-      );
+      if (forCloud) {
+        buffer.writeln(
+          '- ${c.name} (Company: ${c.company ?? 'N/A'}, Role: ${c.role ?? 'N/A'})',
+        );
+      } else {
+        buffer.writeln(
+          '- ${c.name} (Company: ${c.company ?? 'N/A'}, Role: ${c.role ?? 'N/A'}, Phone: ${c.phone ?? 'N/A'}, Email: ${c.email ?? 'N/A'}, Notes: ${c.notes ?? 'None'})',
+        );
+      }
     }
 
     buffer.writeln('\n-- COMMITMENTS & PROMISES (${commitments.length}) --');
@@ -857,10 +945,14 @@ class DatabaseService {
       );
     }
 
-    buffer.writeln('\n-- RECENT MEETINGS (${meetings.length}) --');
-    for (final m in meetings.take(10)) {
+    final meetingList = meetings.take(forCloud ? 5 : 10).toList();
+    buffer.writeln('\n-- RECENT MEETINGS (${meetingList.length}) --');
+    for (final m in meetingList) {
+      final text = forCloud
+          ? (m.summary ?? 'No summary')
+          : (m.summary ?? m.rawNotes ?? 'None');
       buffer.writeln(
-        '- "${m.title}" on ${m.meetingDate.toIso8601String()} | Summary: ${m.summary ?? m.rawNotes ?? 'None'}',
+        '- "${m.title}" on ${m.meetingDate.toIso8601String()} | Summary: $text',
       );
     }
 
@@ -934,10 +1026,12 @@ class DatabaseService {
 
       final createdAt = DateTime.tryParse(createdAtStr) ?? now;
       final dueDate = dueDateStr != null ? DateTime.tryParse(dueDateStr) : null;
-      final completedAt =
-          completedAtStr != null ? DateTime.tryParse(completedAtStr) : null;
+      final completedAt = completedAtStr != null
+          ? DateTime.tryParse(completedAtStr)
+          : null;
 
-      final isOverdue = statusStr == 'overdue' ||
+      final isOverdue =
+          statusStr == 'overdue' ||
           (statusStr == 'pending' && dueDate != null && dueDate.isBefore(now));
 
       final isPromiseReceived = typeStr == 'promiseReceived';
@@ -989,8 +1083,7 @@ class DatabaseService {
         : 100.0;
 
     // Promises Made Say-Do Ratio
-    final evaluatedPromisesMade =
-        promisesMadeCompleted + promisesMadeOverdue;
+    final evaluatedPromisesMade = promisesMadeCompleted + promisesMadeOverdue;
     final promisesMadeSayDo = evaluatedPromisesMade > 0
         ? (promisesMadeCompleted / evaluatedPromisesMade) * 100.0
         : 100.0;
@@ -1041,22 +1134,26 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getChatMessages({int limit = 100}) async {
     final db = await database;
-    final results = await db.query(
-      'chat_messages',
-      orderBy: 'id ASC',
-      limit: limit,
+    final results = await db.rawQuery(
+      'SELECT * FROM (SELECT * FROM chat_messages ORDER BY id DESC LIMIT ?) '
+      'ORDER BY id ASC',
+      [limit],
     );
     return results.map((row) {
       List<String> refs = [];
       if (row['source_references'] != null) {
         try {
-          refs = List<String>.from(jsonDecode(row['source_references'] as String));
+          refs = List<String>.from(
+            jsonDecode(row['source_references'] as String),
+          );
         } catch (_) {}
       }
       List<String> actions = [];
       if (row['suggested_next_actions'] != null) {
         try {
-          actions = List<String>.from(jsonDecode(row['suggested_next_actions'] as String));
+          actions = List<String>.from(
+            jsonDecode(row['suggested_next_actions'] as String),
+          );
         } catch (_) {}
       }
       return {
@@ -1101,12 +1198,15 @@ class DatabaseService {
 
   Future<MemoryItem?> getMemory(int id) async {
     final db = await database;
-    final results = await db.rawQuery('''
+    final results = await db.rawQuery(
+      '''
       SELECT m.*, c.name as contact_name
       FROM memories m
       LEFT JOIN contacts c ON m.contact_id = c.id
       WHERE m.id = ?
-    ''', [id]);
+    ''',
+      [id],
+    );
     if (results.isEmpty) return null;
     return MemoryItem.fromMap(results.first);
   }
@@ -1137,16 +1237,21 @@ class DatabaseService {
       whereArgs.add('%${searchQuery.trim()}%');
     }
 
-    final whereSql = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
+    final whereSql = whereClauses.isNotEmpty
+        ? 'WHERE ${whereClauses.join(' AND ')}'
+        : '';
 
-    final results = await db.rawQuery('''
+    final results = await db.rawQuery(
+      '''
       SELECT m.*, c.name as contact_name
       FROM memories m
       LEFT JOIN contacts c ON m.contact_id = c.id
       $whereSql
       ORDER BY m.created_at DESC
       LIMIT ?
-    ''', [...whereArgs, limit]);
+    ''',
+      [...whereArgs, limit],
+    );
 
     return results.map((row) => MemoryItem.fromMap(row)).toList();
   }
@@ -1187,14 +1292,19 @@ class DatabaseService {
 
   Future<void> clearAllData() async {
     final db = await database;
+    try {
+      await NotificationService().cancelAll();
+    } catch (_) {}
     await db.delete('memories');
     await db.delete('chat_messages');
     await db.delete('action_drafts');
+    await db.delete('interactions');
     await db.delete('reminders');
     await db.delete('commitments');
     await db.delete('meetings');
     await db.delete('contacts');
     await db.delete('organizations');
+    await db.delete('settings'); // keys, persona and cloud consent too
   }
 
   // ─────────────────────────────────────────────
@@ -1488,12 +1598,21 @@ class DatabaseService {
 
   Future<void> saveAssistantSettings(AssistantSettings settings) async {
     await setSetting('assistant_tone', settings.tone.name);
-    await setSetting('personality_profile', jsonEncode(settings.personality.toMap()));
+    await setSetting(
+      'personality_profile',
+      jsonEncode(settings.personality.toMap()),
+    );
     await setSetting('assistant_language', settings.language.name);
     await setSetting('assistant_proactivity', settings.proactivity.name);
     await setSetting('user_title', settings.userTitle);
-    await setSetting('assistant_auto_speak', settings.autoSpeakResponses ? 'true' : 'false');
-    await setSetting('assistant_notifications_enabled', settings.notificationsEnabled ? 'true' : 'false');
+    await setSetting(
+      'assistant_auto_speak',
+      settings.autoSpeakResponses ? 'true' : 'false',
+    );
+    await setSetting(
+      'assistant_notifications_enabled',
+      settings.notificationsEnabled ? 'true' : 'false',
+    );
     await setSetting('assistant_speech_rate', settings.speechRate.toString());
   }
 
@@ -1531,11 +1650,7 @@ class DatabaseService {
         }
 
         if (isDuplicate) {
-          duplicates.add({
-            'primary': c1,
-            'duplicate': c2,
-            'reason': reason,
-          });
+          duplicates.add({'primary': c1, 'duplicate': c2, 'reason': reason});
         }
       }
     }
@@ -1549,8 +1664,16 @@ class DatabaseService {
   Future<void> mergeContacts(int primaryId, int duplicateId) async {
     final db = await database;
     await db.transaction((txn) async {
-      final primaryRows = await txn.query('contacts', where: 'id = ?', whereArgs: [primaryId]);
-      final dupRows = await txn.query('contacts', where: 'id = ?', whereArgs: [duplicateId]);
+      final primaryRows = await txn.query(
+        'contacts',
+        where: 'id = ?',
+        whereArgs: [primaryId],
+      );
+      final dupRows = await txn.query(
+        'contacts',
+        where: 'id = ?',
+        whereArgs: [duplicateId],
+      );
       if (primaryRows.isEmpty || dupRows.isEmpty) return;
 
       final primary = Contact.fromMap(primaryRows.first);
@@ -1559,24 +1682,50 @@ class DatabaseService {
       // Merge missing notes
       final mergedNotes = [
         if (primary.notes != null && primary.notes!.isNotEmpty) primary.notes,
-        if (dup.notes != null && dup.notes!.isNotEmpty) 'Merged Notes: ${dup.notes}',
+        if (dup.notes != null && dup.notes!.isNotEmpty)
+          'Merged Notes: ${dup.notes}',
       ].join('\n\n');
 
       final updatedPrimary = primary.copyWith(
-        phone: (primary.phone == null || primary.phone!.isEmpty) ? dup.phone : primary.phone,
-        email: (primary.email == null || primary.email!.isEmpty) ? dup.email : primary.email,
-        company: (primary.company == null || primary.company!.isEmpty) ? dup.company : primary.company,
-        role: (primary.role == null || primary.role!.isEmpty) ? dup.role : primary.role,
+        phone: (primary.phone == null || primary.phone!.isEmpty)
+            ? dup.phone
+            : primary.phone,
+        email: (primary.email == null || primary.email!.isEmpty)
+            ? dup.email
+            : primary.email,
+        company: (primary.company == null || primary.company!.isEmpty)
+            ? dup.company
+            : primary.company,
+        role: (primary.role == null || primary.role!.isEmpty)
+            ? dup.role
+            : primary.role,
         notes: mergedNotes.isNotEmpty ? mergedNotes : null,
       );
 
-      await txn.update('contacts', updatedPrimary.toMap(), where: 'id = ?', whereArgs: [primaryId]);
+      await txn.update(
+        'contacts',
+        updatedPrimary.toMap(),
+        where: 'id = ?',
+        whereArgs: [primaryId],
+      );
 
       // Reassign linked records
-      await txn.rawUpdate('UPDATE commitments SET contact_id = ? WHERE contact_id = ?', [primaryId, duplicateId]);
-      await txn.rawUpdate('UPDATE reminders SET contact_id = ? WHERE contact_id = ?', [primaryId, duplicateId]);
-      await txn.rawUpdate('UPDATE interactions SET contact_id = ? WHERE contact_id = ?', [primaryId, duplicateId]);
-      await txn.rawUpdate('UPDATE action_drafts SET contact_id = ? WHERE contact_id = ?', [primaryId, duplicateId]);
+      await txn.rawUpdate(
+        'UPDATE commitments SET contact_id = ? WHERE contact_id = ?',
+        [primaryId, duplicateId],
+      );
+      await txn.rawUpdate(
+        'UPDATE reminders SET contact_id = ? WHERE contact_id = ?',
+        [primaryId, duplicateId],
+      );
+      await txn.rawUpdate(
+        'UPDATE interactions SET contact_id = ? WHERE contact_id = ?',
+        [primaryId, duplicateId],
+      );
+      await txn.rawUpdate(
+        'UPDATE action_drafts SET contact_id = ? WHERE contact_id = ?',
+        [primaryId, duplicateId],
+      );
 
       // Delete duplicate contact
       await txn.delete('contacts', where: 'id = ?', whereArgs: [duplicateId]);

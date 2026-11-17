@@ -8,6 +8,7 @@ import '../theme/app_haptics.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/widgets.dart';
 import 'ai_review_screen.dart';
+import 'multi_participant_resolution_screen.dart';
 
 /// Shows what was actually said: summary, key points, who talked about what,
 /// and only explicitly spoken commitments. Nothing is saved until the user taps.
@@ -28,6 +29,7 @@ class MeetingSummaryScreen extends StatefulWidget {
 class _MeetingSummaryScreenState extends State<MeetingSummaryScreen> {
   final _db = DatabaseService();
   bool _saving = false;
+  bool _reviewing = false;
   bool _meetingSaved = false;
   bool _commitmentsSaved = false;
 
@@ -35,10 +37,14 @@ class _MeetingSummaryScreenState extends State<MeetingSummaryScreen> {
       '${c.owner}: ${c.task}${c.due != null ? ' (${c.due})' : ''}';
 
   Future<void> _saveMeeting() async {
+    if (_saving) return;
+
     AppHaptics.mediumImpact();
     setState(() => _saving = true);
+
     try {
       final a = widget.analysis;
+
       await _db.insertMeeting(
         Meeting(
           title: a.title,
@@ -53,7 +59,9 @@ class _MeetingSummaryScreenState extends State<MeetingSummaryScreen> {
           isProcessed: true,
         ),
       );
+
       if (!mounted) return;
+
       AppHaptics.success();
       setState(() => _meetingSaved = true);
       _snack('Saved to Meetings.');
@@ -64,53 +72,116 @@ class _MeetingSummaryScreenState extends State<MeetingSummaryScreen> {
     }
   }
 
-  Future<void> _reviewCommitments() async {
-    final a = widget.analysis;
-    final items = <ExtractedCommitment>[
-      for (final c in a.userCommitments)
-        ExtractedCommitment(
-          title: c.task,
-          description: [
-            if (c.due != null) 'Said deadline: ${c.due}',
-            'Said: "${c.evidence}"',
-          ].join('\n'),
-          type: CommitmentType.promiseMade,
-          confidence: 0.85,
-          sourceExcerpt: c.evidence,
-        ),
-      for (final c in a.othersCommitments)
-        ExtractedCommitment(
-          title: c.task,
-          description: [
-            if (c.due != null) 'Said deadline: ${c.due}',
-            'Said: "${c.evidence}"',
-          ].join('\n'),
-          type: CommitmentType.promiseReceived,
-          contactName: c.owner,
-          confidence: 0.85,
-          sourceExcerpt: c.evidence,
-        ),
-    ];
+  bool _isPlaceholder(String name) {
+    final lower = name.trim().toLowerCase();
 
-    final saved = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AiReviewScreen(
-          extraction: AiExtractionResult(
-            rawInput: widget.rawTranscript,
-            summary: a.summary,
-            contacts: [],
-            commitments: items,
-            reminders: [],
+    return lower.startsWith('person ') ||
+        lower.startsWith('speaker ') ||
+        lower.startsWith('participant ') ||
+        lower == 'someone' ||
+        lower == 'unknown';
+  }
+
+  Future<void> _reviewCommitments() async {
+    if (_reviewing) return;
+
+    setState(() => _reviewing = true);
+
+    try {
+      final a = widget.analysis;
+
+      final items = <ExtractedCommitment>[
+        for (final c in a.userCommitments)
+          ExtractedCommitment(
+            title: c.task,
+            description: [
+              if (c.due != null) 'Said deadline: ${c.due}',
+              'Said: "${c.evidence}"',
+            ].join('\n'),
+            type: CommitmentType.promiseMade,
+            confidence: 0.85,
+            sourceExcerpt: c.evidence,
           ),
+        for (final c in a.othersCommitments)
+          ExtractedCommitment(
+            title: c.task,
+            description: [
+              if (c.due != null) 'Said deadline: ${c.due}',
+              'Said: "${c.evidence}"',
+            ].join('\n'),
+            type: CommitmentType.promiseReceived,
+            contactName: c.owner,
+            confidence: 0.85,
+            sourceExcerpt: c.evidence,
+          ),
+      ];
+
+      // Build one contact per unique promise owner.
+      final contactsByName = <String, ExtractedContact>{};
+
+      for (final c in a.othersCommitments) {
+        final owner = c.owner.trim();
+        if (owner.isEmpty) continue;
+
+        final key = owner.toLowerCase();
+
+        contactsByName.putIfAbsent(
+          key,
+          () => ExtractedContact(
+            name: owner,
+            placeholderTag: _isPlaceholder(owner) ? owner : null,
+            isUnresolved: _isPlaceholder(owner),
+            detectedContext: c.task,
+            notes: 'Mentioned in meeting: ${c.evidence}',
+          ),
+        );
+      }
+
+      final extraction = AiExtractionResult(
+        rawInput: widget.rawTranscript,
+        summary: a.summary,
+        contacts: contactsByName.values.toList(),
+        commitments: items,
+        reminders: [],
+      );
+
+      // Resolve generic speaker labels before opening the review screen.
+      if (extraction.hasUnresolvedParticipants) {
+        final resolved = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MultiParticipantResolutionScreen(
+              extractionResult: extraction,
+              onResolved: () {},
+            ),
+          ),
+        );
+
+        if (resolved != true || !mounted) return;
+      }
+
+      if (!mounted) return;
+
+      final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiReviewScreen(extraction: extraction),
         ),
-      ),
-    );
-    if (saved == true && mounted) setState(() => _commitmentsSaved = true);
+      );
+
+      if (saved == true && mounted) {
+        setState(() => _commitmentsSaved = true);
+      }
+    } catch (e) {
+      _snack('Could not open commitment review: $e');
+    } finally {
+      if (mounted) setState(() => _reviewing = false);
+    }
   }
 
   void _snack(String msg) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
@@ -191,6 +262,7 @@ class _MeetingSummaryScreenState extends State<MeetingSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final a = widget.analysis;
+
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
@@ -303,13 +375,16 @@ class _MeetingSummaryScreenState extends State<MeetingSummaryScreen> {
             const SizedBox(height: AppSpacing.sm),
             AppButton(
               label: _commitmentsSaved
-                  ? 'Commitments saved'
+                  ? 'Promises saved'
                   : 'Review & save commitments',
               icon: Icons.fact_check_rounded,
               variant: AppButtonVariant.secondary,
               fullWidth: true,
               size: AppButtonSize.md,
-              onPressed: _commitmentsSaved ? null : _reviewCommitments,
+              loading: _reviewing,
+              onPressed: (_commitmentsSaved || _reviewing)
+                  ? null
+                  : _reviewCommitments,
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
